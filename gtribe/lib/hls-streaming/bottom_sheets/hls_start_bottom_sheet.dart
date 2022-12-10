@@ -4,14 +4,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gtribe/common/ui/organisms/hms_button.dart';
 import 'package:gtribe/common/util/app_color.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
 import 'package:provider/provider.dart';
 
 class HLSStartBottomSheet extends StatefulWidget {
   @override
-  final Key? key;
-  const HLSStartBottomSheet({this.key}) : super(key: key);
+  const HLSStartBottomSheet({Key? key}) : super(key: key);
 
   @override
   State<HLSStartBottomSheet> createState() => _HLSStartBottomSheetState();
@@ -162,7 +161,7 @@ class _HLSStartBottomSheetState extends State<HLSStartBottomSheet> {
                   width: MediaQuery.of(context).size.width - 30,
                   onPressed: () => {
                         context
-                            .read<MeetingStore>()
+                            .read<MeetingStoreBroadcast>()
                             .startHLSStreaming(_isRecordingOn, false),
                         Navigator.pop(context)
                       },

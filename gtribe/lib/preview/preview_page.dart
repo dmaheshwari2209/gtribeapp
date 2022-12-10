@@ -1,22 +1,23 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'dart:io';
 
 import 'package:badges/badges.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'package:gtribe/common/ui/organisms/embedded_button.dart';
 import 'package:gtribe/common/ui/organisms/hms_button.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:gtribe/common/util/utility_components.dart';
 import 'package:gtribe/common/util/utility_function.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:gtribe/enum/meeting_flow.dart';
 import 'package:gtribe/hls-streaming/hls_screen_controller.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
 import 'package:gtribe/preview/preview_device_settings.dart';
 import 'package:gtribe/preview/preview_participant_sheet.dart';
 import 'package:gtribe/preview/preview_store.dart';
+import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'package:provider/provider.dart';
 
 class PreviewPage extends StatefulWidget {
@@ -25,9 +26,11 @@ class PreviewPage extends StatefulWidget {
   final MeetingFlow meetingFlow;
 
   const PreviewPage(
-      {required this.name,
+      {Key? key,
+      required this.name,
       required this.meetingLink,
-      required this.meetingFlow});
+      required this.meetingFlow})
+      : super(key: key);
   @override
   State<PreviewPage> createState() => _PreviewPageState();
 }
@@ -101,9 +104,9 @@ class _PreviewPageState extends State<PreviewPage> {
                       });
                 });
               } else {
-                Utilities.showToast(
-                    "Error : ${error.code?.errorCode ?? ""} ${error.description} ${error.message}",
-                    time: 5);
+                // Utilities.showToast(
+                //     "Error : ${error.code?.errorCode ?? ""} ${error.description} ${error.message}",
+                //     time: 5);
               }
             }
             return Scaffold(
@@ -384,28 +387,28 @@ class _PreviewPageState extends State<PreviewPage> {
                                                       switch (previewStore
                                                           .networkQuality) {
                                                         case 0:
-                                                          Utilities.showToast(
-                                                              "Very Bad network");
+                                                          // Utilities.showToast(
+                                                          //     "Very Bad network");
                                                           break;
                                                         case 1:
-                                                          Utilities.showToast(
-                                                              "Poor network");
+                                                          // Utilities.showToast(
+                                                          //     "Poor network");
                                                           break;
                                                         case 2:
-                                                          Utilities.showToast(
-                                                              "Bad network");
+                                                          // Utilities.showToast(
+                                                          //     "Bad network");
                                                           break;
                                                         case 3:
-                                                          Utilities.showToast(
-                                                              "Average network");
+                                                          // Utilities.showToast(
+                                                          //     "Average network");
                                                           break;
                                                         case 4:
-                                                          Utilities.showToast(
-                                                              "Good network");
+                                                          // Utilities.showToast(
+                                                          //     "Good network");
                                                           break;
                                                         case 5:
-                                                          Utilities.showToast(
-                                                              "Best network");
+                                                          // Utilities.showToast(
+                                                          //     "Best network");
                                                           break;
                                                         default:
                                                           break;
@@ -437,13 +440,15 @@ class _PreviewPageState extends State<PreviewPage> {
                                             MaterialPageRoute(
                                                 builder: (_) =>
                                                     ListenableProvider.value(
-                                                      value: MeetingStore(
+                                                      value:
+                                                          MeetingStoreBroadcast(
                                                         hmsSDKInteractor:
                                                             previewStore
                                                                 .hmsSDKInteractor!,
                                                       ),
                                                       child:
                                                           HLSScreenController(
+                                                        isBroadcast: true,
                                                         streamUrl: context
                                                                 .read<
                                                                     PreviewStore>()

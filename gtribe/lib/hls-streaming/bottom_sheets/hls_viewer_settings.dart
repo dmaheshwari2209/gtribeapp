@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:gtribe/common/util/utility_components.dart';
-import 'package:gtribe/hls-streaming/bottom_sheets/hls_participant_sheet.dart';
 import 'package:gtribe/data_store/meeting_store.dart';
 import 'package:provider/provider.dart';
 
@@ -89,35 +88,35 @@ class _HLSViewerSettingsState extends State<HLSViewerSettings> {
                       fontWeight: FontWeight.w600),
                 ),
               ),
-              ListTile(
-                horizontalTitleGap: 2,
-                onTap: () {
-                  showModalBottomSheet(
-                    isScrollControlled: true,
-                    backgroundColor: themeBottomSheetColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    context: context,
-                    builder: (ctx) => ChangeNotifierProvider.value(
-                        value: context.read<MeetingStore>(),
-                        child: HLSParticipantSheet()),
-                  );
-                },
-                contentPadding: EdgeInsets.zero,
-                leading: SvgPicture.asset(
-                  "assets/icons/participants.svg",
-                  fit: BoxFit.scaleDown,
-                ),
-                title: Text(
-                  "Participants",
-                  style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: themeDefaultColor,
-                      letterSpacing: 0.25,
-                      fontWeight: FontWeight.w600),
-                ),
-              ),
+              // ListTile(
+              //   horizontalTitleGap: 2,
+              //   onTap: () {
+              //     showModalBottomSheet(
+              //       isScrollControlled: true,
+              //       backgroundColor: themeBottomSheetColor,
+              //       shape: RoundedRectangleBorder(
+              //         borderRadius: BorderRadius.circular(20),
+              //       ),
+              //       context: context,
+              //       builder: (ctx) => ChangeNotifierProvider.value(
+              //           value: context.read<MeetingStore>(),
+              //           child: HLSParticipantSheet()),
+              //     );
+              //   },
+              //   contentPadding: EdgeInsets.zero,
+              //   leading: SvgPicture.asset(
+              //     "assets/icons/participants.svg",
+              //     fit: BoxFit.scaleDown,
+              //   ),
+              //   title: Text(
+              //     "Participants",
+              //     style: GoogleFonts.inter(
+              //         fontSize: 14,
+              //         color: themeDefaultColor,
+              //         letterSpacing: 0.25,
+              //         fontWeight: FontWeight.w600),
+              //   ),
+              // ),
               ListTile(
                   horizontalTitleGap: 2,
                   onTap: () async {

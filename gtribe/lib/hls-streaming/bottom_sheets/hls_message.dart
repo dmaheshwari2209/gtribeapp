@@ -1,11 +1,12 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 //Package imports
+import 'package:collection/collection.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gtribe/common/util/app_color.dart';
-import 'package:gtribe/common/util/utility_function.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:gtribe/hls-streaming/util/hls_message_organism.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -13,9 +14,16 @@ import 'package:tuple/tuple.dart';
 
 //Project imports
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
+
+import '../../data_store/meeting_store.dart';
 
 class HLSMessage extends StatefulWidget {
+  const HLSMessage({
+    Key? key,
+    required this.isBroadcast,
+  }) : super(key: key);
+  final bool isBroadcast;
+
   @override
   State<HLSMessage> createState() => _HLSMessageState();
 }
@@ -76,13 +84,46 @@ class _HLSMessageState extends State<HLSMessage> {
     messageTextController.clear();
   }
 
+  void sendMessageBroadcast() async {
+    MeetingStoreBroadcast meetingStoreBroMeetingStoreBroadcast =
+        context.read<MeetingStoreBroadcast>();
+    List<HMSRole> hmsRoles = meetingStoreBroMeetingStoreBroadcast.roles;
+    String message = messageTextController.text;
+    if (message.isEmpty) return;
+
+    List<String> rolesName = <String>[];
+    for (int i = 0; i < hmsRoles.length; i++) {
+      rolesName.add(hmsRoles[i].name);
+    }
+
+    if (valueChoose == "Everyone") {
+      meetingStoreBroMeetingStoreBroadcast.sendBroadcastMessage(message);
+    } else if (rolesName.contains(valueChoose)) {
+      List<HMSRole> selectedRoles = [];
+      selectedRoles
+          .add(hmsRoles.firstWhere((role) => role.name == valueChoose));
+      meetingStoreBroMeetingStoreBroadcast.sendGroupMessage(
+          message, selectedRoles);
+    } else if (meetingStoreBroMeetingStoreBroadcast.localPeer!.peerId !=
+        valueChoose) {
+      var peer = await meetingStoreBroMeetingStoreBroadcast.getPeer(
+          peerId: valueChoose);
+      meetingStoreBroMeetingStoreBroadcast.sendDirectMessage(message, peer!);
+    }
+    messageTextController.clear();
+  }
+
   @override
   Widget build(BuildContext context) {
     widthOfScreen = MediaQuery.of(context).size.width;
 
     return WillPopScope(
       onWillPop: () async {
-        context.read<MeetingStore>().setNewMessageFalse();
+        if (widget.isBroadcast) {
+          context.read<MeetingStoreBroadcast>().setNewMessageFalse();
+        } else {
+          context.read<MeetingStore>().setNewMessageFalse();
+        }
         return true;
       },
       child: SafeArea(
@@ -130,106 +171,221 @@ class _HLSMessageState extends State<HLSMessage> {
                                         width: 0.80),
                                   ),
                                   child: DropdownButtonHideUnderline(
-                                    child: Selector<
-                                            MeetingStore,
-                                            Tuple2<List<HMSRole>,
-                                                List<HMSPeer>>>(
-                                        selector: (_, meetingStore) => Tuple2(
-                                            meetingStore.roles,
-                                            meetingStore.peers),
-                                        builder: (context, data, _) {
-                                          List<HMSRole> roles = data.item1;
-                                          return DropdownButton2(
-                                            selectedItemHighlightColor:
-                                                hmsdefaultColor,
-                                            isExpanded: true,
-                                            dropdownWidth:
-                                                MediaQuery.of(context)
-                                                        .size
-                                                        .width *
-                                                    0.4,
-                                            buttonWidth: 100,
-                                            buttonHeight: 35,
-                                            itemHeight: 45,
-                                            value: valueChoose,
-                                            icon: const Icon(
-                                                Icons.keyboard_arrow_down),
-                                            dropdownDecoration: BoxDecoration(
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                                color: themeSurfaceColor),
-                                            offset: const Offset(-10, -10),
-                                            iconEnabledColor: iconColor,
-                                            // selectedItemHighlightColor: Colors.blue,
-                                            onChanged: (dynamic newvalue) {
-                                              setState(() {
-                                                valueChoose =
-                                                    newvalue as String;
-                                              });
-                                            },
-                                            items: <DropdownMenuItem>[
-                                              DropdownMenuItem(
-                                                value: "Everyone",
-                                                child: Text(
-                                                  "Everyone",
-                                                  style: GoogleFonts.inter(
-                                                    fontWeight: FontWeight.w400,
-                                                    fontSize: 12,
-                                                    letterSpacing: 0.4,
+                                    child: widget.isBroadcast
+                                        ? Selector<
+                                                MeetingStoreBroadcast,
+                                                Tuple2<List<HMSRole>,
+                                                    List<HMSPeer>>>(
+                                            selector: (_, meetingStore) =>
+                                                Tuple2(meetingStore.roles,
+                                                    meetingStore.peers),
+                                            builder: (context, data, _) {
+                                              List<HMSRole> roles = data.item1;
+                                              return DropdownButton2(
+                                                selectedItemHighlightColor:
+                                                    hmsdefaultColor,
+                                                isExpanded: true,
+                                                dropdownWidth:
+                                                    MediaQuery.of(context)
+                                                            .size
+                                                            .width *
+                                                        0.4,
+                                                buttonWidth: 100,
+                                                buttonHeight: 35,
+                                                itemHeight: 45,
+                                                value: valueChoose,
+                                                icon: const Icon(
+                                                    Icons.keyboard_arrow_down),
+                                                dropdownDecoration:
+                                                    BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        color:
+                                                            themeSurfaceColor),
+                                                offset: const Offset(-10, -10),
+                                                iconEnabledColor: iconColor,
+                                                // selectedItemHighlightColor: Colors.blue,
+                                                onChanged: (dynamic newvalue) {
+                                                  setState(() {
+                                                    valueChoose =
+                                                        newvalue as String;
+                                                  });
+                                                },
+                                                items: <DropdownMenuItem>[
+                                                  DropdownMenuItem(
+                                                    value: "Everyone",
+                                                    child: Text(
+                                                      "Everyone",
+                                                      style: GoogleFonts.inter(
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        fontSize: 12,
+                                                        letterSpacing: 0.4,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                    ),
                                                   ),
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  maxLines: 1,
-                                                ),
-                                              ),
-                                              ...roles
-                                                  .sortedBy((element) => element
-                                                      .priority
-                                                      .toString())
-                                                  .map((role) =>
-                                                      DropdownMenuItem(
-                                                        value: role.name,
-                                                        child: Text(
-                                                          "${role.name}",
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          maxLines: 1,
-                                                          style:
-                                                              GoogleFonts.inter(
-                                                                  fontSize: 12,
-                                                                  color:
-                                                                      iconColor),
-                                                        ),
-                                                      ))
-                                                  .toList(),
-                                              ...data.item2
-                                                  .sortedBy(
-                                                      (element) => element.name)
-                                                  .map((peer) {
-                                                    return !peer.isLocal
-                                                        ? DropdownMenuItem(
-                                                            value: peer.peerId,
-                                                            child: Text(
-                                                              "${peer.name} ${peer.isLocal ? "(You)" : ""}",
-                                                              style: GoogleFonts
-                                                                  .inter(
+                                                  ...roles
+                                                      .sortedBy((element) =>
+                                                          element.priority
+                                                              .toString())
+                                                      .map(
+                                                          (role) =>
+                                                              DropdownMenuItem(
+                                                                value:
+                                                                    role.name,
+                                                                child: Text(
+                                                                  role.name,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  maxLines: 1,
+                                                                  style: GoogleFonts.inter(
                                                                       fontSize:
                                                                           12,
                                                                       color:
                                                                           iconColor),
-                                                              overflow:
-                                                                  TextOverflow
-                                                                      .ellipsis,
-                                                              maxLines: 1,
-                                                            ),
-                                                          )
-                                                        : null;
-                                                  })
-                                                  .whereNotNull()
-                                                  .toList(),
-                                            ],
-                                          );
-                                        }),
+                                                                ),
+                                                              ))
+                                                      .toList(),
+                                                  ...data.item2
+                                                      .sortedBy((element) =>
+                                                          element.name)
+                                                      .map((peer) {
+                                                        return !peer.isLocal
+                                                            ? DropdownMenuItem(
+                                                                value:
+                                                                    peer.peerId,
+                                                                child: Text(
+                                                                  "${peer.name} ${peer.isLocal ? "(You)" : ""}",
+                                                                  style: GoogleFonts.inter(
+                                                                      fontSize:
+                                                                          12,
+                                                                      color:
+                                                                          iconColor),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  maxLines: 1,
+                                                                ),
+                                                              )
+                                                            : null;
+                                                      })
+                                                      .whereNotNull()
+                                                      .toList(),
+                                                ],
+                                              );
+                                            })
+                                        : Selector<
+                                                MeetingStore,
+                                                Tuple2<List<HMSRole>,
+                                                    List<HMSPeer>>>(
+                                            selector: (_, meetingStore) =>
+                                                Tuple2(meetingStore.roles,
+                                                    meetingStore.peers),
+                                            builder: (context, data, _) {
+                                              List<HMSRole> roles = data.item1;
+                                              return DropdownButton2(
+                                                selectedItemHighlightColor:
+                                                    hmsdefaultColor,
+                                                isExpanded: true,
+                                                dropdownWidth:
+                                                    MediaQuery.of(context)
+                                                            .size
+                                                            .width *
+                                                        0.4,
+                                                buttonWidth: 100,
+                                                buttonHeight: 35,
+                                                itemHeight: 45,
+                                                value: valueChoose,
+                                                icon: const Icon(
+                                                    Icons.keyboard_arrow_down),
+                                                dropdownDecoration:
+                                                    BoxDecoration(
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                        color:
+                                                            themeSurfaceColor),
+                                                offset: const Offset(-10, -10),
+                                                iconEnabledColor: iconColor,
+                                                // selectedItemHighlightColor: Colors.blue,
+                                                onChanged: (dynamic newvalue) {
+                                                  setState(() {
+                                                    valueChoose =
+                                                        newvalue as String;
+                                                  });
+                                                },
+                                                items: <DropdownMenuItem>[
+                                                  DropdownMenuItem(
+                                                    value: "Everyone",
+                                                    child: Text(
+                                                      "Everyone",
+                                                      style: GoogleFonts.inter(
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                        fontSize: 12,
+                                                        letterSpacing: 0.4,
+                                                      ),
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      maxLines: 1,
+                                                    ),
+                                                  ),
+                                                  ...roles
+                                                      .sortedBy((element) =>
+                                                          element.priority
+                                                              .toString())
+                                                      .map(
+                                                          (role) =>
+                                                              DropdownMenuItem(
+                                                                value:
+                                                                    role.name,
+                                                                child: Text(
+                                                                  role.name,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  maxLines: 1,
+                                                                  style: GoogleFonts.inter(
+                                                                      fontSize:
+                                                                          12,
+                                                                      color:
+                                                                          iconColor),
+                                                                ),
+                                                              ))
+                                                      .toList(),
+                                                  ...data.item2
+                                                      .sortedBy((element) =>
+                                                          element.name)
+                                                      .map((peer) {
+                                                        return !peer.isLocal
+                                                            ? DropdownMenuItem(
+                                                                value:
+                                                                    peer.peerId,
+                                                                child: Text(
+                                                                  "${peer.name} ${peer.isLocal ? "(You)" : ""}",
+                                                                  style: GoogleFonts.inter(
+                                                                      fontSize:
+                                                                          12,
+                                                                      color:
+                                                                          iconColor),
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
+                                                                  maxLines: 1,
+                                                                ),
+                                                              )
+                                                            : null;
+                                                      })
+                                                      .whereNotNull()
+                                                      .toList(),
+                                                ],
+                                              );
+                                            }),
                                   ),
                                 )
                               ],
@@ -243,7 +399,13 @@ class _HLSMessageState extends State<HLSMessage> {
                           width: 40,
                         ),
                         onPressed: () {
-                          context.read<MeetingStore>().setNewMessageFalse();
+                          if (widget.isBroadcast) {
+                            context
+                                .read<MeetingStoreBroadcast>()
+                                .setNewMessageFalse();
+                          } else {
+                            context.read<MeetingStore>().setNewMessageFalse();
+                          }
                           Navigator.pop(context);
                         },
                       ),
@@ -256,16 +418,149 @@ class _HLSMessageState extends State<HLSMessage> {
                       color: dividerColor,
                     ),
                   ),
-                  Selector<MeetingStore, Tuple2<bool, String?>>(
-                      selector: (_, meetingStore) => Tuple2(
-                          meetingStore.isMessageInfoShown,
-                          meetingStore.sessionMetadata),
-                      builder: (context, displayFlags, _) {
-                        if (displayFlags.item1 &&
-                            (displayFlags.item2 == null)) {
-                          return Column(
-                            children: [
-                              Container(
+                  widget.isBroadcast
+                      ? Selector<MeetingStoreBroadcast, Tuple2<bool, String?>>(
+                          selector: (_, meetingStore) => Tuple2(
+                              meetingStore.isMessageInfoShown,
+                              meetingStore.sessionMetadata),
+                          builder: (context, displayFlags, _) {
+                            if (displayFlags.item1 &&
+                                (displayFlags.item2 == null)) {
+                              return Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        color: themeSurfaceColor),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            SvgPicture.asset(
+                                                "assets/icons/info.svg"),
+                                            const SizedBox(width: 18.5),
+                                            SizedBox(
+                                              width: MediaQuery.of(context)
+                                                      .size
+                                                      .width *
+                                                  0.66,
+                                              child: Text(
+                                                "Messages can only be seen by people in the call and are deleted when the call ends.",
+                                                style: GoogleFonts.inter(
+                                                    fontWeight: FontWeight.w400,
+                                                    color: themeSubHeadingColor,
+                                                    letterSpacing: 0.4,
+                                                    height: 16 / 12,
+                                                    fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        GestureDetector(
+                                            onTap: () {
+                                              if (widget.isBroadcast) {
+                                                context
+                                                    .read<
+                                                        MeetingStoreBroadcast>()
+                                                    .setMessageInfoFalse();
+                                              } else {
+                                                context
+                                                    .read<MeetingStore>()
+                                                    .setMessageInfoFalse();
+                                              }
+                                            },
+                                            child: SvgPicture.asset(
+                                                "assets/icons/close.svg"))
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height: 15,
+                                  ),
+                                ],
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          })
+                      : Selector<MeetingStore, Tuple2<bool, String?>>(
+                          selector: (_, meetingStore) => Tuple2(
+                              meetingStore.isMessageInfoShown,
+                              meetingStore.sessionMetadata),
+                          builder: (context, displayFlags, _) {
+                            if (displayFlags.item1 &&
+                                (displayFlags.item2 == null)) {
+                              return Column(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        color: themeSurfaceColor),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            SvgPicture.asset(
+                                                "assets/icons/info.svg"),
+                                            const SizedBox(width: 18.5),
+                                            SizedBox(
+                                              width: MediaQuery.of(context)
+                                                      .size
+                                                      .width *
+                                                  0.66,
+                                              child: Text(
+                                                "Messages can only be seen by people in the call and are deleted when the call ends.",
+                                                style: GoogleFonts.inter(
+                                                    fontWeight: FontWeight.w400,
+                                                    color: themeSubHeadingColor,
+                                                    letterSpacing: 0.4,
+                                                    height: 16 / 12,
+                                                    fontSize: 12),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        GestureDetector(
+                                            onTap: () {
+                                              if (widget.isBroadcast) {
+                                                context
+                                                    .read<
+                                                        MeetingStoreBroadcast>()
+                                                    .setMessageInfoFalse();
+                                              } else {
+                                                context
+                                                    .read<MeetingStore>()
+                                                    .setMessageInfoFalse();
+                                              }
+                                            },
+                                            child: SvgPicture.asset(
+                                                "assets/icons/close.svg"))
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(
+                                    height: 15,
+                                  ),
+                                ],
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          }),
+                  widget.isBroadcast
+                      ? Selector<MeetingStoreBroadcast, String?>(
+                          selector: (_, meetingStore) =>
+                              meetingStore.sessionMetadata,
+                          builder: (context, sessionMetadata, _) {
+                            if (sessionMetadata != null &&
+                                sessionMetadata != "") {
+                              return Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
@@ -277,7 +572,7 @@ class _HLSMessageState extends State<HLSMessage> {
                                     Row(
                                       children: [
                                         SvgPicture.asset(
-                                            "assets/icons/info.svg"),
+                                            "assets/icons/pin.svg"),
                                         const SizedBox(width: 18.5),
                                         SizedBox(
                                           width: MediaQuery.of(context)
@@ -285,7 +580,7 @@ class _HLSMessageState extends State<HLSMessage> {
                                                   .width *
                                               0.66,
                                           child: Text(
-                                            "Messages can only be seen by people in the call and are deleted when the call ends.",
+                                            sessionMetadata,
                                             style: GoogleFonts.inter(
                                                 fontWeight: FontWeight.w400,
                                                 color: themeSubHeadingColor,
@@ -298,128 +593,201 @@ class _HLSMessageState extends State<HLSMessage> {
                                     ),
                                     GestureDetector(
                                         onTap: () {
-                                          context
-                                              .read<MeetingStore>()
-                                              .setMessageInfoFalse();
+                                          if (widget.isBroadcast) {
+                                            context
+                                                .read<MeetingStoreBroadcast>()
+                                                .setSessionMetadata(null);
+                                          } else {
+                                            context
+                                                .read<MeetingStore>()
+                                                .setSessionMetadata(null);
+                                          }
                                         },
                                         child: SvgPicture.asset(
                                             "assets/icons/close.svg"))
                                   ],
                                 ),
-                              ),
-                              const SizedBox(
-                                height: 15,
-                              ),
-                            ],
-                          );
-                        } else {
-                          return const SizedBox();
-                        }
-                      }),
-                  Selector<MeetingStore, String?>(
-                      selector: (_, meetingStore) =>
-                          meetingStore.sessionMetadata,
-                      builder: (context, sessionMetadata, _) {
-                        if (sessionMetadata != null && sessionMetadata != "") {
-                          return Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: themeSurfaceColor),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          })
+                      : Selector<MeetingStore, String?>(
+                          selector: (_, meetingStore) =>
+                              meetingStore.sessionMetadata,
+                          builder: (context, sessionMetadata, _) {
+                            if (sessionMetadata != null &&
+                                sessionMetadata != "") {
+                              return Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    color: themeSurfaceColor),
+                                child: Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    SvgPicture.asset("assets/icons/pin.svg"),
-                                    const SizedBox(width: 18.5),
-                                    SizedBox(
-                                      width: MediaQuery.of(context).size.width *
-                                          0.66,
-                                      child: Text(
-                                        sessionMetadata,
-                                        style: GoogleFonts.inter(
-                                            fontWeight: FontWeight.w400,
-                                            color: themeSubHeadingColor,
-                                            letterSpacing: 0.4,
-                                            height: 16 / 12,
-                                            fontSize: 12),
-                                      ),
+                                    Row(
+                                      children: [
+                                        SvgPicture.asset(
+                                            "assets/icons/pin.svg"),
+                                        const SizedBox(width: 18.5),
+                                        SizedBox(
+                                          width: MediaQuery.of(context)
+                                                  .size
+                                                  .width *
+                                              0.66,
+                                          child: Text(
+                                            sessionMetadata,
+                                            style: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w400,
+                                                color: themeSubHeadingColor,
+                                                letterSpacing: 0.4,
+                                                height: 16 / 12,
+                                                fontSize: 12),
+                                          ),
+                                        ),
+                                      ],
                                     ),
+                                    GestureDetector(
+                                        onTap: () {
+                                          if (widget.isBroadcast) {
+                                            context
+                                                .read<MeetingStoreBroadcast>()
+                                                .setSessionMetadata(null);
+                                          } else {
+                                            context
+                                                .read<MeetingStore>()
+                                                .setSessionMetadata(null);
+                                          }
+                                        },
+                                        child: SvgPicture.asset(
+                                            "assets/icons/close.svg"))
                                   ],
                                 ),
-                                GestureDetector(
-                                    onTap: () {
-                                      context
-                                          .read<MeetingStore>()
-                                          .setSessionMetadata(null);
-                                    },
-                                    child: SvgPicture.asset(
-                                        "assets/icons/close.svg"))
-                              ],
-                            ),
-                          );
-                        } else {
-                          return const SizedBox();
-                        }
-                      }),
+                              );
+                            } else {
+                              return const SizedBox();
+                            }
+                          }),
                   const SizedBox(
                     height: 15,
                   ),
                   Expanded(
-                    child:
-                        Selector<MeetingStore, Tuple2<List<HMSMessage>, int>>(
-                      selector: (_, meetingStore) => Tuple2(
-                          meetingStore.messages, meetingStore.messages.length),
-                      builder: (context, data, _) {
-                        if (data.item2 == 0) {
-                          return Center(
-                              child: Text(
-                            'No messages',
-                            style: GoogleFonts.inter(color: iconColor),
-                          ));
-                        }
-                        _scrollToEnd();
-                        return ListView(
-                          controller: _scrollController,
-                          children: List.generate(
-                              data.item2,
-                              (index) => Container(
-                                  padding: EdgeInsets.fromLTRB(
-                                    (data.item1[index].sender?.isLocal ?? false)
-                                        ? 50.0
-                                        : 8.0,
-                                    10,
-                                    (data.item1[index].sender?.isLocal ?? false)
-                                        ? 8.0
-                                        : 20.0,
-                                    10,
-                                  ),
-                                  margin:
-                                      const EdgeInsets.symmetric(vertical: 2),
-                                  child: HLSMessageOrganism(
-                                    isLocalMessage:
-                                        data.item1[index].sender?.isLocal ??
-                                                false
-                                            ? true
-                                            : false,
-                                    message:
-                                        data.item1[index].message.toString(),
-                                    senderName:
-                                        data.item1[index].sender?.name ??
-                                            "Anonymous",
-                                    date: formatter
-                                        .format(data.item1[index].time),
-                                    role:
-                                        data.item1[index].hmsMessageRecipient ==
-                                                null
-                                            ? ""
-                                            : sender(data.item1[index]
-                                                .hmsMessageRecipient!),
-                                  ))),
-                        );
-                      },
-                    ),
+                    child: widget.isBroadcast
+                        ? Selector<MeetingStoreBroadcast,
+                            Tuple2<List<HMSMessage>, int>>(
+                            selector: (_, meetingStore) => Tuple2(
+                                meetingStore.messages,
+                                meetingStore.messages.length),
+                            builder: (context, data, _) {
+                              if (data.item2 == 0) {
+                                return Center(
+                                    child: Text(
+                                  'No messages',
+                                  style: GoogleFonts.inter(color: iconColor),
+                                ));
+                              }
+                              _scrollToEnd();
+                              return ListView(
+                                controller: _scrollController,
+                                children: List.generate(
+                                    data.item2,
+                                    (index) => Container(
+                                        padding: EdgeInsets.fromLTRB(
+                                          (data.item1[index].sender?.isLocal ??
+                                                  false)
+                                              ? 50.0
+                                              : 8.0,
+                                          10,
+                                          (data.item1[index].sender?.isLocal ??
+                                                  false)
+                                              ? 8.0
+                                              : 20.0,
+                                          10,
+                                        ),
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 2),
+                                        child: HLSMessageOrganism(
+                                          isBroadcast: widget.isBroadcast,
+                                          isLocalMessage: data.item1[index]
+                                                      .sender?.isLocal ??
+                                                  false
+                                              ? true
+                                              : false,
+                                          message: data.item1[index].message
+                                              .toString(),
+                                          senderName:
+                                              data.item1[index].sender?.name ??
+                                                  "Anonymous",
+                                          date: formatter
+                                              .format(data.item1[index].time),
+                                          role: data.item1[index]
+                                                      .hmsMessageRecipient ==
+                                                  null
+                                              ? ""
+                                              : sender(data.item1[index]
+                                                  .hmsMessageRecipient!),
+                                        ))),
+                              );
+                            },
+                          )
+                        : Selector<MeetingStore, Tuple2<List<HMSMessage>, int>>(
+                            selector: (_, meetingStore) => Tuple2(
+                                meetingStore.messages,
+                                meetingStore.messages.length),
+                            builder: (context, data, _) {
+                              if (data.item2 == 0) {
+                                return Center(
+                                    child: Text(
+                                  'No messages',
+                                  style: GoogleFonts.inter(color: iconColor),
+                                ));
+                              }
+                              _scrollToEnd();
+                              return ListView(
+                                controller: _scrollController,
+                                children: List.generate(
+                                    data.item2,
+                                    (index) => Container(
+                                        padding: EdgeInsets.fromLTRB(
+                                          (data.item1[index].sender?.isLocal ??
+                                                  false)
+                                              ? 50.0
+                                              : 8.0,
+                                          10,
+                                          (data.item1[index].sender?.isLocal ??
+                                                  false)
+                                              ? 8.0
+                                              : 20.0,
+                                          10,
+                                        ),
+                                        margin: const EdgeInsets.symmetric(
+                                            vertical: 2),
+                                        child: HLSMessageOrganism(
+                                          isBroadcast: widget.isBroadcast,
+                                          isLocalMessage: data.item1[index]
+                                                      .sender?.isLocal ??
+                                                  false
+                                              ? true
+                                              : false,
+                                          message: data.item1[index].message
+                                              .toString(),
+                                          senderName:
+                                              data.item1[index].sender?.name ??
+                                                  "Anonymous",
+                                          date: formatter
+                                              .format(data.item1[index].time),
+                                          role: data.item1[index]
+                                                      .hmsMessageRecipient ==
+                                                  null
+                                              ? ""
+                                              : sender(data.item1[index]
+                                                  .hmsMessageRecipient!),
+                                        ))),
+                              );
+                            },
+                          ),
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -434,11 +802,15 @@ class _HLSMessageState extends State<HLSMessage> {
                             textCapitalization: TextCapitalization.sentences,
                             textInputAction: TextInputAction.done,
                             onSubmitted: (value) {
-                              sendMessage();
+                              if (widget.isBroadcast) {
+                                sendMessageBroadcast();
+                              } else {
+                                sendMessage();
+                              }
                             },
                             style: GoogleFonts.inter(color: iconColor),
                             controller: messageTextController,
-                            decoration: new InputDecoration(
+                            decoration: InputDecoration(
                                 border: InputBorder.none,
                                 focusedBorder: InputBorder.none,
                                 enabledBorder: InputBorder.none,
@@ -449,7 +821,7 @@ class _HLSMessageState extends State<HLSMessage> {
                                     fontSize: 14,
                                     letterSpacing: 0.25,
                                     fontWeight: FontWeight.w400),
-                                contentPadding: EdgeInsets.only(
+                                contentPadding: const EdgeInsets.only(
                                     left: 15, bottom: 11, top: 11, right: 15),
                                 hintText: "Send a message to everyone"),
                           ),
@@ -457,9 +829,13 @@ class _HLSMessageState extends State<HLSMessage> {
                         InkWell(
                             onTap: () {
                               if (messageTextController.text.isEmpty) {
-                                Utilities.showToast("Message can't be empty");
+                                // Utilities.showToast("Message can't be empty");
                               }
-                              sendMessage();
+                              if (widget.isBroadcast) {
+                                sendMessageBroadcast();
+                              } else {
+                                sendMessage();
+                              }
                             },
                             child: SizedBox(
                               width: 40,

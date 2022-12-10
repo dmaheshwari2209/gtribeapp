@@ -7,7 +7,6 @@ import 'package:gtribe/common/ui/organisms/embedded_button.dart';
 import 'package:gtribe/common/ui/organisms/stream_timer.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:gtribe/common/util/utility_components.dart';
-import 'package:gtribe/common/util/utility_function.dart';
 import 'package:gtribe/hls-streaming/bottom_sheets/hls_message.dart';
 import 'package:gtribe/hls-streaming/util/hls_subtitle_text.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
@@ -33,7 +32,8 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        bool ans = await UtilityComponents.onBackPressed(context) ?? false;
+        bool ans =
+            await UtilityComponents.onBackPressed(context, false) ?? false;
         return ans;
       },
       child: Selector<MeetingStore, Tuple2<bool, HMSException?>>(
@@ -58,7 +58,7 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
             }
             if (data.item1) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                Utilities.showToast(context.read<MeetingStore>().description);
+                // Utilities.showToast(context.read<MeetingStore>().description);
                 Navigator.of(context).popUntil((route) => route.isFirst);
               });
             }
@@ -89,6 +89,7 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
                                   height: MediaQuery.of(context).size.height,
                                   child: Center(
                                     child: HLSPlayer(
+                                        isBroadcast: false,
                                         streamUrl: (widget.streamUrl != null)
                                             ? widget.streamUrl!
                                             : context
@@ -120,7 +121,7 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
                                     EmbeddedButton(
                                       onTap: () async => {
                                         await UtilityComponents.onBackPressed(
-                                            context)
+                                            context, false)
                                       },
                                       disabledBorderColor:
                                           const Color(0xffCC525F),
@@ -324,7 +325,10 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
                                                             value: context.read<
                                                                 MeetingStore>(),
                                                             child:
-                                                                HLSMessage()),
+                                                                const HLSMessage(
+                                                              isBroadcast:
+                                                                  false,
+                                                            )),
                                               )
                                             },
                                             width: 40,
@@ -408,7 +412,7 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
                                 null;
                             WidgetsBinding.instance.addPostFrameCallback((_) {
                               UtilityComponents.showTrackChangeDialog(
-                                  context, currentRequest);
+                                  context, currentRequest, false);
                             });
                           }
                           return const SizedBox();
@@ -448,7 +452,7 @@ class _HLSViewerPageState extends State<HLSViewerPage> {
                         builder: (_, reconnecting, __) {
                           if (reconnecting) {
                             return UtilityComponents.showReconnectingDialog(
-                                context);
+                                context, false);
                           }
                           return const SizedBox();
                         }),

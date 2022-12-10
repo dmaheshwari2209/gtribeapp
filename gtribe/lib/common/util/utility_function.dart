@@ -2,7 +2,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'package:gtribe/common/constant.dart';
 import 'package:gtribe/enum/meeting_flow.dart';
@@ -10,6 +9,13 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Utilities {
+  static double horizontalPadding = 24;
+
+  static TextStyle spacedStyle = TextStyle(
+      color: Colors.white.withOpacity(0.6), letterSpacing: 5, fontSize: 13);
+  static TextStyle simpleStyle =
+      const TextStyle(color: Colors.white, fontSize: 20);
+
   static RegExp REGEX_EMOJI = RegExp(
       r'(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])');
 
@@ -32,6 +38,14 @@ class Utilities {
       }
     }
     return name.toUpperCase();
+  }
+
+  double screenWidth(BuildContext context) {
+    return MediaQuery.of(context).size.width;
+  }
+
+  double screenHeight(BuildContext context) {
+    return MediaQuery.of(context).size.height;
   }
 
   static Color getBackgroundColour(String name) {
@@ -123,12 +137,12 @@ class Utilities {
     }
   }
 
-  static void showToast(String message, {int time = 1}) {
-    Fluttertoast.showToast(
-        msg: message,
-        backgroundColor: Colors.black87,
-        timeInSecForIosWeb: time);
-  }
+  // static void showToast(String message, {int time = 1}) {
+  //   Fluttertoast.showToast(
+  //       msg: message,
+  //       backgroundColor: Colors.black87,
+  //       timeInSecForIosWeb: time);
+  // }
 
   static Future<String> getStringData({required String key}) async {
     final prefs = await SharedPreferences.getInstance();

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'package:gtribe/common/ui/organisms/audio_level_avatar.dart';
 import 'package:gtribe/common/util/app_color.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
 import 'package:gtribe/hls_viewer/hls_viewer.dart';
 import 'package:gtribe/model/peer_track_node.dart';
 import 'package:provider/provider.dart';
@@ -19,13 +19,13 @@ class _PipViewState extends State<PipView> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-          child: Selector<MeetingStore,
+          child: Selector<MeetingStoreBroadcast,
                   Tuple4<List<PeerTrackNode>, bool, int, int>>(
-              selector: (_, meetingStore) => Tuple4(
-                  meetingStore.peerTracks,
-                  meetingStore.isHLSLink,
-                  meetingStore.screenShareCount,
-                  meetingStore.peerTracks.length),
+              selector: (_, meetingStoreBroMeetingStoreBroadcast) => Tuple4(
+                  meetingStoreBroMeetingStoreBroadcast.peerTracks,
+                  meetingStoreBroMeetingStoreBroadcast.isHLSLink,
+                  meetingStoreBroMeetingStoreBroadcast.screenShareCount,
+                  meetingStoreBroMeetingStoreBroadcast.peerTracks.length),
               builder: (_, data, __) {
                 late int peerIndex;
                 if (!data.item2) {
@@ -39,16 +39,17 @@ class _PipViewState extends State<PipView> {
                   }
                 }
                 return (data.item2)
-                    ? Selector<MeetingStore, bool>(
-                        selector: (_, meetingStore) =>
-                            meetingStore.hasHlsStarted,
+                    ? Selector<MeetingStoreBroadcast, bool>(
+                        selector: (_, meetingStoreBroMeetingStoreBroadcast) =>
+                            meetingStoreBroMeetingStoreBroadcast.hasHlsStarted,
                         builder: (_, hasHlsStarted, __) {
                           return hasHlsStarted
                               ? Container(
                                   child: Center(
                                     child: HLSPlayer(
+                                        isBroadcast: true,
                                         streamUrl: context
-                                            .read<MeetingStore>()
+                                            .read<MeetingStoreBroadcast>()
                                             .streamUrl),
                                   ),
                                 )

@@ -1,13 +1,12 @@
 //Package imports
 
 import 'package:dropdown_button2/dropdown_button2.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gtribe/common/constant.dart';
 import 'package:gtribe/common/util/app_color.dart';
-import 'package:gtribe/common/util/utility_function.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:gtribe/enum/meeting_mode.dart';
 import 'package:gtribe/hls-streaming/util/hls_subtitle_text.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
@@ -15,13 +14,12 @@ import 'package:provider/provider.dart';
 
 //Project imports
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
-import 'package:gtribe/common/ui/organisms/role_change_request_dialog.dart';
 import 'package:gtribe/common/ui/organisms/track_change_request_dialog.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
+
+import '../../data_store/meeting_store.dart';
 
 class UtilityComponents {
-  static Future<dynamic> onBackPressed(BuildContext context) {
-    MeetingStore meetingStore = context.read<MeetingStore>();
+  static Future<dynamic> onBackPressed(BuildContext context, bool isBroadcast) {
     return showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -104,7 +102,9 @@ class UtilityComponents {
                         borderRadius: BorderRadius.circular(8.0),
                       ))),
                   onPressed: () => {
-                    meetingStore.leave(),
+                    (isBroadcast
+                        ? context.read<MeetingStoreBroadcast>().leave()
+                        : context.read<MeetingStore>().leave()),
                     Navigator.popUntil(context, (route) => route.isFirst)
                   },
                   child: Padding(
@@ -128,8 +128,7 @@ class UtilityComponents {
     );
   }
 
-  static Future<dynamic> onLeaveStudio(BuildContext context) {
-    MeetingStore meetingStore = context.read<MeetingStore>();
+  static Future<dynamic> onLeaveStudio(BuildContext context, bool isBroadcast) {
     return showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -209,7 +208,9 @@ class UtilityComponents {
                         borderRadius: BorderRadius.circular(8.0),
                       ))),
                   onPressed: () => {
-                    meetingStore.leave(),
+                    (isBroadcast
+                        ? context.read<MeetingStoreBroadcast>().leave()
+                        : context.read<MeetingStore>().leave()),
                     Navigator.popUntil(context, (route) => route.isFirst)
                   },
                   child: Padding(
@@ -231,21 +232,37 @@ class UtilityComponents {
 
   static void showRoleChangeDialog(
       HMSRoleChangeRequest event, BuildContext context) async {
-    await showDialog(
-        barrierDismissible: false,
-        context: context,
-        builder: (ctx) => RoleChangeDialogOrganism(
-            roleChangeRequest: event,
-            meetingStore: context.read<MeetingStore>()));
+    return;
+    // await showDialog(
+    //     barrierDismissible: false,
+    //     context: context,
+    //     builder: (ctx) => RoleChangeDialogOrganism(
+    //         roleChangeRequest: event,
+    //         meetingStore: context.read<MeetingStore>()));
   }
 
-  static showTrackChangeDialog(
-      BuildContext context, HMSTrackChangeRequest trackChangeRequest) async {
+  static showTrackChangeDialog(BuildContext context,
+      HMSTrackChangeRequest trackChangeRequest, bool isBroadcast) async {
+    if (isBroadcast) {
+      MeetingStoreBroadcast meetingStoreBroadcast =
+          context.read<MeetingStoreBroadcast>();
+      await showDialog(
+          barrierDismissible: false,
+          context: context,
+          builder: (ctx) => TrackChangeDialogOrganism(
+                isBroadcast: isBroadcast,
+                trackChangeRequest: trackChangeRequest,
+                meetingStoreBroadcast: context.read<MeetingStoreBroadcast>(),
+                isAudioModeOn:
+                    meetingStoreBroadcast.meetingMode == MeetingMode.Audio,
+              ));
+    }
     MeetingStore meetingStore = context.read<MeetingStore>();
     await showDialog(
         barrierDismissible: false,
         context: context,
         builder: (ctx) => TrackChangeDialogOrganism(
+              isBroadcast: isBroadcast,
               trackChangeRequest: trackChangeRequest,
               meetingStore: context.read<MeetingStore>(),
               isAudioModeOn: meetingStore.meetingMode == MeetingMode.Audio,
@@ -340,11 +357,11 @@ class UtilityComponents {
     return answer;
   }
 
-  static showHLSDialog({required BuildContext context}) async {
+  static showHLSDialog(
+      {required BuildContext context, required bool isBroadcast}) async {
     TextEditingController textController = TextEditingController();
     textController.text = Constant.streamingUrl;
     bool isSingleFileChecked = false, isVODChecked = false;
-    MeetingStore meetingStore = context.read<MeetingStore>();
     await showDialog(
         context: context,
         builder: (context) => StatefulBuilder(builder: (context, setState) {
@@ -418,8 +435,15 @@ class UtilityComponents {
                     onPressed: () {
                       if (textController.text == "") {
                       } else {
-                        meetingStore.startHLSStreaming(
-                            isSingleFileChecked, isVODChecked);
+                        (isBroadcast
+                            ? context
+                                .read<MeetingStoreBroadcast>()
+                                .startHLSStreaming(
+                                    isSingleFileChecked, isVODChecked)
+                            : context.read<MeetingStore>().startHLSStreaming(
+                                isSingleFileChecked, isVODChecked));
+                        // meetingStore.startHLSStreaming(
+                        //     isSingleFileChecked, isVODChecked);
                         Navigator.pop(context);
                       }
                     },
@@ -429,114 +453,114 @@ class UtilityComponents {
             }));
   }
 
-  static showRoleList(BuildContext context, List<HMSRole> roles,
-      MeetingStore meetingStore) async {
-    List<HMSRole> selectedRoles = [];
-    bool muteAll = false;
-    showDialog(
-        context: context,
-        builder: (context) => StatefulBuilder(builder: (context, setState) {
-              return AlertDialog(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                backgroundColor: themeBottomSheetColor,
-                title: Text(
-                  "Select Role for Mute",
-                  style: GoogleFonts.inter(
-                    color: iconColor,
-                  ),
-                ),
-                content: SizedBox(
-                    width: 300,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListView.builder(
-                              shrinkWrap: true,
-                              itemCount: roles.length,
-                              itemBuilder: (context, index) {
-                                return Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      roles[index].name,
-                                      style: GoogleFonts.inter(
-                                        color: iconColor,
-                                      ),
-                                    ),
-                                    Checkbox(
-                                        value: selectedRoles
-                                            .contains(roles[index]),
-                                        activeColor: Colors.blue,
-                                        onChanged: (bool? value) {
-                                          if (value != null && value) {
-                                            selectedRoles.add(roles[index]);
-                                          } else if (selectedRoles
-                                              .contains(roles[index])) {
-                                            selectedRoles.remove(roles[index]);
-                                          }
-                                          setState(() {});
-                                        }),
-                                  ],
-                                );
-                              }),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "Mute All",
-                                style: GoogleFonts.inter(color: Colors.red),
-                              ),
-                              Checkbox(
-                                  value: muteAll,
-                                  activeColor: Colors.blue,
-                                  onChanged: (bool? value) {
-                                    if (value != null) {
-                                      muteAll = value;
-                                    }
-                                    setState(() {});
-                                  }),
-                            ],
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                      // backgroundColor: Colors.red,
-                                      ),
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  child: Text(
-                                    "Cancel",
-                                    style: GoogleFonts.inter(),
-                                  )),
-                              ElevatedButton(
-                                  onPressed: () {
-                                    if (muteAll) {
-                                      meetingStore.changeTrackStateForRole(
-                                          true, null);
-                                    } else if (selectedRoles.isNotEmpty) {
-                                      meetingStore.changeTrackStateForRole(
-                                          true, selectedRoles);
-                                    }
-                                    Navigator.pop(context);
-                                  },
-                                  child: Text(
-                                    "Mute",
-                                    style: GoogleFonts.inter(),
-                                  ))
-                            ],
-                          )
-                        ],
-                      ),
-                    )),
-              );
-            }));
-  }
+  // static showRoleList(BuildContext context, List<HMSRole> roles,
+  //     MeetingStore meetingStore) async {
+  //   List<HMSRole> selectedRoles = [];
+  //   bool muteAll = false;
+  //   showDialog(
+  //       context: context,
+  //       builder: (context) => StatefulBuilder(builder: (context, setState) {
+  //             return AlertDialog(
+  //               shape: RoundedRectangleBorder(
+  //                   borderRadius: BorderRadius.circular(12)),
+  //               backgroundColor: themeBottomSheetColor,
+  //               title: Text(
+  //                 "Select Role for Mute",
+  //                 style: GoogleFonts.inter(
+  //                   color: iconColor,
+  //                 ),
+  //               ),
+  //               content: SizedBox(
+  //                   width: 300,
+  //                   child: SingleChildScrollView(
+  //                     child: Column(
+  //                       mainAxisSize: MainAxisSize.min,
+  //                       children: [
+  //                         ListView.builder(
+  //                             shrinkWrap: true,
+  //                             itemCount: roles.length,
+  //                             itemBuilder: (context, index) {
+  //                               return Row(
+  //                                 mainAxisAlignment:
+  //                                     MainAxisAlignment.spaceBetween,
+  //                                 children: [
+  //                                   Text(
+  //                                     roles[index].name,
+  //                                     style: GoogleFonts.inter(
+  //                                       color: iconColor,
+  //                                     ),
+  //                                   ),
+  //                                   Checkbox(
+  //                                       value: selectedRoles
+  //                                           .contains(roles[index]),
+  //                                       activeColor: Colors.blue,
+  //                                       onChanged: (bool? value) {
+  //                                         if (value != null && value) {
+  //                                           selectedRoles.add(roles[index]);
+  //                                         } else if (selectedRoles
+  //                                             .contains(roles[index])) {
+  //                                           selectedRoles.remove(roles[index]);
+  //                                         }
+  //                                         setState(() {});
+  //                                       }),
+  //                                 ],
+  //                               );
+  //                             }),
+  //                         Row(
+  //                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  //                           children: [
+  //                             Text(
+  //                               "Mute All",
+  //                               style: GoogleFonts.inter(color: Colors.red),
+  //                             ),
+  //                             Checkbox(
+  //                                 value: muteAll,
+  //                                 activeColor: Colors.blue,
+  //                                 onChanged: (bool? value) {
+  //                                   if (value != null) {
+  //                                     muteAll = value;
+  //                                   }
+  //                                   setState(() {});
+  //                                 }),
+  //                           ],
+  //                         ),
+  //                         Row(
+  //                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  //                           children: [
+  //                             ElevatedButton(
+  //                                 style: ElevatedButton.styleFrom(
+  //                                     // backgroundColor: Colors.red,
+  //                                     ),
+  //                                 onPressed: () {
+  //                                   Navigator.pop(context);
+  //                                 },
+  //                                 child: Text(
+  //                                   "Cancel",
+  //                                   style: GoogleFonts.inter(),
+  //                                 )),
+  //                             ElevatedButton(
+  //                                 onPressed: () {
+  //                                   if (muteAll) {
+  //                                     meetingStore.changeTrackStateForRole(
+  //                                         true, null);
+  //                                   } else if (selectedRoles.isNotEmpty) {
+  //                                     meetingStore.changeTrackStateForRole(
+  //                                         true, selectedRoles);
+  //                                   }
+  //                                   Navigator.pop(context);
+  //                                 },
+  //                                 child: Text(
+  //                                   "Mute",
+  //                                   style: GoogleFonts.inter(),
+  //                                 ))
+  //                           ],
+  //                         )
+  //                       ],
+  //                     ),
+  //                   )),
+  //             );
+  //           }));
+  // }
 
   static Future<Map<String, dynamic>> showRTMPInputDialog(
       {context,
@@ -662,8 +686,9 @@ class UtilityComponents {
     return answer;
   }
 
-  static Future<dynamic> onEndRoomPressed(BuildContext context) {
-    MeetingStore meetingStore = context.read<MeetingStore>();
+  static Future<dynamic> onEndRoomPressed(
+      BuildContext context, bool isBroadcast) {
+    // MeetingStore meetingStore = context.read<MeetingStore>();
     return showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -748,9 +773,31 @@ class UtilityComponents {
                         borderRadius: BorderRadius.circular(8.0),
                       ))),
                   onPressed: () => {
-                    meetingStore.endRoom(false, "Room Ended From Flutter"),
-                    if (meetingStore.isRoomEnded)
-                      {Navigator.popUntil(context, (route) => route.isFirst)}
+                    if (isBroadcast)
+                      {
+                        context
+                            .read<MeetingStoreBroadcast>()
+                            .endRoom(false, "Room Ended From Flutter"),
+                        if (context.read<MeetingStoreBroadcast>().isRoomEnded)
+                          {
+                            Navigator.popUntil(
+                                context, (route) => route.isFirst)
+                          }
+                      }
+                    else
+                      {
+                        context
+                            .read<MeetingStore>()
+                            .endRoom(false, "Room Ended From Flutter"),
+                        if (context.read<MeetingStore>().isRoomEnded)
+                          {
+                            Navigator.popUntil(
+                                context, (route) => route.isFirst)
+                          }
+                      }
+                    // meetingStore.endRoom(false, "Room Ended From Flutter"),
+                    // if (meetingStore.isRoomEnded)
+                    //   {Navigator.popUntil(context, (route) => route.isFirst)}
                   },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -773,25 +820,25 @@ class UtilityComponents {
     );
   }
 
-  static Widget rotateScreen(BuildContext context) {
-    MeetingStore meetingStore = Provider.of<MeetingStore>(context);
-    return GestureDetector(
-      onTap: () {
-        if (meetingStore.isLandscapeLocked) {
-          meetingStore.setLandscapeLock(false);
-        } else {
-          meetingStore.setLandscapeLock(true);
-        }
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: SvgPicture.asset(
-          "assets/icons/rotate.svg",
-          color: meetingStore.isLandscapeLocked ? Colors.blue : iconColor,
-        ),
-      ),
-    );
-  }
+  // static Widget rotateScreen(BuildContext context,) {
+  //   // MeetingStore meetingStore = Provider.of<MeetingStore>(context);
+  //   return GestureDetector(
+  //     onTap: () {
+  //       if (meetingStore.isLandscapeLocked) {
+  //         meetingStore.setLandscapeLock(false);
+  //       } else {
+  //         meetingStore.setLandscapeLock(true);
+  //       }
+  //     },
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(8.0),
+  //       child: SvgPicture.asset(
+  //         "assets/icons/rotate.svg",
+  //         color: meetingStore.isLandscapeLocked ? Colors.blue : iconColor,
+  //       ),
+  //     ),
+  //   );
+  // }
 
   static Future<bool> showErrorDialog(
       {required BuildContext context,
@@ -855,7 +902,7 @@ class UtilityComponents {
     return res ?? false;
   }
 
-  static Widget showReconnectingDialog(BuildContext context,
+  static Widget showReconnectingDialog(BuildContext context, bool isBroadcast,
       {String alertMessage = "Leave Room"}) {
     return Container(
       height: MediaQuery.of(context).size.height,
@@ -914,7 +961,11 @@ class UtilityComponents {
                   style: GoogleFonts.inter(),
                 ),
                 onPressed: () {
-                  context.read<MeetingStore>().leave();
+                  if (isBroadcast) {
+                    context.read<MeetingStoreBroadcast>().leave();
+                  } else {
+                    context.read<MeetingStore>().leave();
+                  }
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 })
           ]),
@@ -929,8 +980,9 @@ class UtilityComponents {
       required String content,
       required String actionText,
       required String ignoreText,
+      required bool isBroadcast,
       bool leaveRoom = false}) {
-    MeetingStore meetingStore = context.read<MeetingStore>();
+    // MeetingStore meetingStore = context.read<MeetingStore>();
     return showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1014,10 +1066,26 @@ class UtilityComponents {
                         borderRadius: BorderRadius.circular(8.0),
                       ))),
                   onPressed: () => {
-                    meetingStore.stopHLSStreaming(),
+                    if (isBroadcast)
+                      {
+                        context
+                            .read<MeetingStoreBroadcast>()
+                            .stopHLSStreaming(),
+                      }
+                    else
+                      {
+                        context.read<MeetingStore>().stopHLSStreaming(),
+                      },
                     if (leaveRoom)
                       {
-                        meetingStore.leave(),
+                        if (isBroadcast)
+                          {
+                            context.read<MeetingStoreBroadcast>().leave(),
+                          }
+                        else
+                          {
+                            context.read<MeetingStore>().leave(),
+                          }
                       },
                     Navigator.pop(context)
                   },
@@ -1070,9 +1138,11 @@ class UtilityComponents {
                     TextField(
                       textCapitalization: TextCapitalization.words,
                       textInputAction: TextInputAction.done,
-                      onSubmitted: (value) => (textController.text == "")
-                          ? Utilities.showToast("Name can't be empty")
-                          : Navigator.pop(context, textController.text.trim()),
+                      onSubmitted: (value) {
+                        if (!(textController.text == "")) {
+                          Navigator.pop(context, textController.text.trim());
+                        }
+                      },
                       autofocus: true,
                       controller: textController,
                       decoration: InputDecoration(
@@ -1137,7 +1207,7 @@ class UtilityComponents {
                       onPressed: () => {
                         if (textController.text == "")
                           {
-                            Utilities.showToast("Name can't be empty"),
+                            // Utilities.showToast("Name can't be empty"),
                           }
                         else
                           {Navigator.pop(context, textController.text.trim())}
@@ -1163,10 +1233,11 @@ class UtilityComponents {
     return answer;
   }
 
-  static void showChangeAudioMixingModeDialog(BuildContext context) {
+  static void showChangeAudioMixingModeDialog(
+      BuildContext context, bool isBroadcasting) {
     HMSAudioMixingMode valueChoose = HMSAudioMixingMode.TALK_AND_MUSIC;
     double width = MediaQuery.of(context).size.width;
-    MeetingStore meetingStore = context.read<MeetingStore>();
+    // MeetingStore meetingStore = context.read<MeetingStore>();
     showDialog(
         barrierDismissible: false,
         context: context,
@@ -1302,11 +1373,30 @@ class UtilityComponents {
                               borderRadius: BorderRadius.circular(8.0),
                             ))),
                         onPressed: () => {
-                          if (meetingStore.isAudioShareStarted)
-                            meetingStore.setAudioMixingMode(valueChoose)
+                          if (isBroadcasting)
+                            {
+                              if (context
+                                  .read<MeetingStoreBroadcast>()
+                                  .isAudioShareStarted)
+                                context
+                                    .read<MeetingStoreBroadcast>()
+                                    .setAudioMixingMode(valueChoose)
+                              else
+                                // Utilities.showToast("Audio Share not enabled"),
+                                Navigator.pop(context),
+                            }
                           else
-                            Utilities.showToast("Audio Share not enabled"),
-                          Navigator.pop(context),
+                            {
+                              if (context
+                                  .read<MeetingStore>()
+                                  .isAudioShareStarted)
+                                context
+                                    .read<MeetingStore>()
+                                    .setAudioMixingMode(valueChoose)
+                              else
+                                // Utilities.showToast("Audio Share not enabled"),
+                                Navigator.pop(context),
+                            },
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -1328,119 +1418,119 @@ class UtilityComponents {
             }));
   }
 
-  static Future<String> showAudioShareDialog(
-      {required BuildContext context,
-      required MeetingStore meetingStore,
-      required bool isPlaying}) async {
-    double volume = meetingStore.audioPlayerVolume;
-    String answer = await showDialog(
-        context: context,
-        builder: (context) => StatefulBuilder(builder: (context, setState) {
-              return AlertDialog(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                backgroundColor: themeBottomSheetColor,
-                contentPadding: const EdgeInsets.only(
-                    left: 14, right: 10, top: 15, bottom: 15),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(isPlaying ? "Stop playing" : "Pick song from files"),
-                    const SizedBox(height: 10),
-                    if (isPlaying)
-                      Column(
-                        children: [
-                          Text("Volume: ${(volume * 100).truncate()}"),
-                          Slider(
-                            min: 0.0,
-                            max: 1.0,
-                            value: volume,
-                            onChanged: (value) {
-                              setState(() {
-                                volume = value;
-                                meetingStore.setAudioPlayerVolume(volume);
-                              });
-                            },
-                          ),
-                        ],
-                      )
-                  ],
-                ),
-                actions: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                          style: ButtonStyle(
-                              shadowColor:
-                                  MaterialStateProperty.all(themeSurfaceColor),
-                              backgroundColor: MaterialStateProperty.all(
-                                  themeBottomSheetColor),
-                              shape: MaterialStateProperty.all<
-                                      RoundedRectangleBorder>(
-                                  RoundedRectangleBorder(
-                                side: const BorderSide(
-                                    width: 1,
-                                    color: Color.fromRGBO(107, 125, 153, 1)),
-                                borderRadius: BorderRadius.circular(8.0),
-                              ))),
-                          onPressed: () => Navigator.pop(context, ""),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 12),
-                            child: Text('Cancel',
-                                style: GoogleFonts.inter(
-                                    color: themeDefaultColor,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.50)),
-                          )),
-                      ElevatedButton(
-                        style: ButtonStyle(
-                            shadowColor:
-                                MaterialStateProperty.all(themeSurfaceColor),
-                            backgroundColor:
-                                MaterialStateProperty.all(hmsdefaultColor),
-                            shape: MaterialStateProperty.all<
-                                RoundedRectangleBorder>(RoundedRectangleBorder(
-                              side:
-                                  BorderSide(width: 1, color: hmsdefaultColor),
-                              borderRadius: BorderRadius.circular(8.0),
-                            ))),
-                        onPressed: () async {
-                          if (isPlaying) {
-                            meetingStore.stopAudioIos();
-                            Navigator.pop(context, "");
-                          } else {
-                            FilePickerResult? result =
-                                await FilePicker.platform.pickFiles();
-                            if (result != null) {
-                              String? path =
-                                  "file://${result.files.single.path!}";
+  // static Future<String> showAudioShareDialog(
+  //     {required BuildContext context,
+  //     required MeetingStore meetingStore,
+  //     required bool isPlaying}) async {
+  //   double volume = meetingStore.audioPlayerVolume;
+  //   String answer = await showDialog(
+  //       context: context,
+  //       builder: (context) => StatefulBuilder(builder: (context, setState) {
+  //             return AlertDialog(
+  //               shape: RoundedRectangleBorder(
+  //                   borderRadius: BorderRadius.circular(12)),
+  //               backgroundColor: themeBottomSheetColor,
+  //               contentPadding: const EdgeInsets.only(
+  //                   left: 14, right: 10, top: 15, bottom: 15),
+  //               content: Column(
+  //                 mainAxisSize: MainAxisSize.min,
+  //                 children: [
+  //                   Text(isPlaying ? "Stop playing" : "Pick song from files"),
+  //                   const SizedBox(height: 10),
+  //                   if (isPlaying)
+  //                     Column(
+  //                       children: [
+  //                         Text("Volume: ${(volume * 100).truncate()}"),
+  //                         Slider(
+  //                           min: 0.0,
+  //                           max: 1.0,
+  //                           value: volume,
+  //                           onChanged: (value) {
+  //                             setState(() {
+  //                               volume = value;
+  //                               meetingStore.setAudioPlayerVolume(volume);
+  //                             });
+  //                           },
+  //                         ),
+  //                       ],
+  //                     )
+  //                 ],
+  //               ),
+  //               actions: [
+  //                 Row(
+  //                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+  //                   children: [
+  //                     ElevatedButton(
+  //                         style: ButtonStyle(
+  //                             shadowColor:
+  //                                 MaterialStateProperty.all(themeSurfaceColor),
+  //                             backgroundColor: MaterialStateProperty.all(
+  //                                 themeBottomSheetColor),
+  //                             shape: MaterialStateProperty.all<
+  //                                     RoundedRectangleBorder>(
+  //                                 RoundedRectangleBorder(
+  //                               side: const BorderSide(
+  //                                   width: 1,
+  //                                   color: Color.fromRGBO(107, 125, 153, 1)),
+  //                               borderRadius: BorderRadius.circular(8.0),
+  //                             ))),
+  //                         onPressed: () => Navigator.pop(context, ""),
+  //                         child: Padding(
+  //                           padding: const EdgeInsets.symmetric(
+  //                               horizontal: 6, vertical: 12),
+  //                           child: Text('Cancel',
+  //                               style: GoogleFonts.inter(
+  //                                   color: themeDefaultColor,
+  //                                   fontSize: 16,
+  //                                   fontWeight: FontWeight.w600,
+  //                                   letterSpacing: 0.50)),
+  //                         )),
+  //                     ElevatedButton(
+  //                       style: ButtonStyle(
+  //                           shadowColor:
+  //                               MaterialStateProperty.all(themeSurfaceColor),
+  //                           backgroundColor:
+  //                               MaterialStateProperty.all(hmsdefaultColor),
+  //                           shape: MaterialStateProperty.all<
+  //                               RoundedRectangleBorder>(RoundedRectangleBorder(
+  //                             side:
+  //                                 BorderSide(width: 1, color: hmsdefaultColor),
+  //                             borderRadius: BorderRadius.circular(8.0),
+  //                           ))),
+  //                       onPressed: () async {
+  //                         if (isPlaying) {
+  //                           meetingStore.stopAudioIos();
+  //                           Navigator.pop(context, "");
+  //                         } else {
+  //                           FilePickerResult? result =
+  //                               await FilePicker.platform.pickFiles();
+  //                           if (result != null) {
+  //                             String? path =
+  //                                 "file://${result.files.single.path!}";
 
-                              Navigator.pop(context, path);
-                            }
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 12),
-                          child: Text(
-                            isPlaying ? 'Stop' : 'Select',
-                            style: GoogleFonts.inter(
-                                color: themeDefaultColor,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                letterSpacing: 0.50),
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              );
-            }));
+  //                             Navigator.pop(context, path);
+  //                           }
+  //                         }
+  //                       },
+  //                       child: Padding(
+  //                         padding: const EdgeInsets.symmetric(
+  //                             horizontal: 6, vertical: 12),
+  //                         child: Text(
+  //                           isPlaying ? 'Stop' : 'Select',
+  //                           style: GoogleFonts.inter(
+  //                               color: themeDefaultColor,
+  //                               fontSize: 16,
+  //                               fontWeight: FontWeight.w600,
+  //                               letterSpacing: 0.50),
+  //                         ),
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 )
+  //               ],
+  //             );
+  //           }));
 
-    return answer;
-  }
+  //   return answer;
+  // }
 }

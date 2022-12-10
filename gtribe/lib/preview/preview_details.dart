@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:gtribe/common/ui/organisms/hms_listenable_button.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:gtribe/common/util/utility_function.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:gtribe/enum/meeting_flow.dart';
 import 'package:gtribe/hls-streaming/hls_screen_controller.dart';
 import 'package:gtribe/hms_sdk_interactor.dart';
@@ -16,10 +16,12 @@ class PreviewDetails extends StatefulWidget {
   final String meetingLink;
   final MeetingFlow meetingFlow;
   final bool autofocusField;
-  const PreviewDetails(
-      {required this.meetingLink,
-      required this.meetingFlow,
-      this.autofocusField = false});
+  const PreviewDetails({
+    Key? key,
+    required this.meetingLink,
+    required this.meetingFlow,
+    this.autofocusField = false,
+  }) : super(key: key);
   @override
   State<PreviewDetails> createState() => _PreviewDetailsState();
 }
@@ -41,7 +43,7 @@ class _PreviewDetailsState extends State<PreviewDetails> {
 
   void showPreview(bool res) async {
     if (nameController.text.isEmpty) {
-      Utilities.showToast("Please enter you name");
+      // Utilities.showToast("Please enter you name");
     } else {
       Utilities.saveStringData(key: "name", value: nameController.text.trim());
       res = await Utilities.getPermissions();
@@ -82,22 +84,26 @@ class _PreviewDetailsState extends State<PreviewDetails> {
               joinWithMutedVideo: joinWithMutedVideo,
               isSoftwareDecoderDisabled: isSoftwareDecoderDisabled,
               isAudioMixerDisabled: isAudioMixerDisabled);
-          Navigator.of(context).pushReplacement(MaterialPageRoute(
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
               builder: (_) => ListenableProvider.value(
-                    value: MeetingStore(hmsSDKInteractor: hmsSDKInteractor),
-                    child: HLSScreenController(
-                      isRoomMute: false,
-                      isStreamingLink: widget.meetingFlow == MeetingFlow.meeting
-                          ? false
-                          : true,
-                      isAudioOn: true,
-                      meetingLink: widget.meetingLink,
-                      localPeerNetworkQuality: -1,
-                      user: nameController.text.trim(),
-                      mirrorCamera: mirrorCamera,
-                      showStats: showStats,
-                    ),
-                  )));
+                value:
+                    MeetingStoreBroadcast(hmsSDKInteractor: hmsSDKInteractor),
+                child: HLSScreenController(
+                  isBroadcast: true,
+                  isRoomMute: false,
+                  isStreamingLink:
+                      widget.meetingFlow == MeetingFlow.meeting ? false : true,
+                  isAudioOn: true,
+                  meetingLink: widget.meetingLink,
+                  localPeerNetworkQuality: -1,
+                  user: nameController.text.trim(),
+                  mirrorCamera: mirrorCamera,
+                  showStats: showStats,
+                ),
+              ),
+            ),
+          );
         }
       }
     }

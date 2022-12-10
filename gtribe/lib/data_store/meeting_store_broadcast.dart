@@ -27,12 +27,12 @@ import 'package:pip_flutter/pipflutter_player_event.dart';
 import 'package:pip_flutter/pipflutter_player_event_type.dart';
 import 'package:pip_flutter/pipflutter_player_theme.dart';
 
-class MeetingStore extends ChangeNotifier
+class MeetingStoreBroadcast extends ChangeNotifier
     with WidgetsBindingObserver
     implements HMSUpdateListener, HMSActionResultListener, HMSStatsListener {
   late HMSSDKInteractor _hmsSDKInteractor;
 
-  MeetingStore({required HMSSDKInteractor hmsSDKInteractor}) {
+  MeetingStoreBroadcast({required HMSSDKInteractor hmsSDKInteractor}) {
     _hmsSDKInteractor = hmsSDKInteractor;
   }
 

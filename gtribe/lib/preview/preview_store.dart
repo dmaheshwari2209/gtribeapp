@@ -270,8 +270,8 @@ class PreviewStore extends ChangeNotifier
       List<HMSAudioDevice>? availableAudioDevice}) {
     if (currentAudioDevice != null &&
         currentAudioOutputDevice != currentAudioDevice) {
-      Utilities.showToast(
-          "Output Device changed to ${currentAudioDevice.name}");
+      // Utilities.showToast(
+      //     "Output Device changed to ${currentAudioDevice.name}");
       currentAudioOutputDevice = currentAudioDevice;
     }
 

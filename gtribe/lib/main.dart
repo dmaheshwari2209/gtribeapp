@@ -1,18 +1,12 @@
 //Dart imports
 import 'dart:async';
 
-//Package imports
-// import 'package:firebase_core/firebase_core.dart';
-// import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-// import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:gtribe/common/ui/modal_sheets/stream_popup.dart';
+import 'package:gtribe/common/ui/screens/viewer_page.dart';
 import 'package:gtribe/common/util/app_color.dart';
-import 'package:gtribe/enum/meeting_flow.dart';
-import 'package:gtribe/qr_code_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock/wakelock.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -21,27 +15,16 @@ import 'package:uni_links/uni_links.dart';
 //Project imports
 import './logs/custom_singleton_logger.dart';
 import 'common/util/utility_function.dart';
-import 'hls-streaming/util/hls_title_text.dart';
-import 'hms_app_settings.dart';
-import 'preview/preview_details.dart';
 
 bool _initialURILinkHandled = false;
 StreamSubscription? _streamSubscription;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // await Firebase.initializeApp();
-  // FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
   Wakelock.enable();
   Provider.debugCheckInvalidValueType = null;
 
-  // Get any initial links
-  // final PendingDynamicLinkData? initialLink =
-  //     await FirebaseDynamicLinks.instance.getInitialLink();
-  runApp(HMSExampleApp());
-
-  // runZonedGuarded(() => runApp(HMSExampleApp(initialLink: initialLink?.link)),
-  //     FirebaseCrashlytics.instance.recordError);
+  runApp(const HMSExampleApp());
 }
 
 class HMSExampleApp extends StatefulWidget {
@@ -264,282 +247,42 @@ class _HomePageState extends State<HomePage> {
     super.didUpdateWidget(oldWidget);
   }
 
-  void joinMeeting() {
-    String url =
-        'https://flutterhms.page.link/ARnn2FMfXCdk3S157?meetingUrl=https://gtribe.app.100ms.live/streaming/meeting/slx-sip-xan';
-    // if (meetingLinkController.text.isEmpty) {
-    //   return;
-    // }
-    FocusManager.instance.primaryFocus?.unfocus();
-    Utilities.setRTMPUrl(url);
-    MeetingFlow flow = Utilities.deriveFlow(url);
-    if (flow == MeetingFlow.meeting || flow == MeetingFlow.hlsStreaming) {
-      Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => PreviewDetails(
-                    autofocusField: true,
-                    meetingLink: url.trim(),
-                    meetingFlow: flow,
-                  )));
-    } else {
-      Utilities.showToast("Please enter valid url");
-    }
+  void showNudge() {
+    showModalBottomSheet(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      context: context,
+      builder: (context) {
+        return const StreamPopup();
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.width;
+    Size size = MediaQuery.of(context).size;
+    String meetingURL =
+        'https://gtribe.app.100ms.live/streaming/meeting/bta-hqq-jto';
     return WillPopScope(
       onWillPop: _closeApp,
       child: SafeArea(
         child: Scaffold(
-            body: Center(
-          child: SingleChildScrollView(
-            child: Column(
-              children: [
-                SvgPicture.asset(
-                  'assets/welcome.svg',
-                  width: width * 0.95,
-                ),
-                const SizedBox(
-                  height: 20,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18),
-                  child: Text('Experience the power of 100ms',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          letterSpacing: 0.25,
-                          color: themeDefaultColor,
-                          height: 1.17,
-                          fontSize: 34,
-                          fontWeight: FontWeight.w600)),
-                ),
-                const SizedBox(
-                  height: 8,
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 27),
-                  child: Text(
-                      'Jump right in by pasting a room link or scanning a QR code',
-                      textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                          letterSpacing: 0.5,
-                          color: themeSubHeadingColor,
-                          height: 1.5,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400)),
-                ),
-                const SizedBox(
-                  height: 15,
-                ),
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text("Joining Link",
-                          key: const Key('joining_link_text'),
-                          style: GoogleFonts.inter(
-                              color: themeDefaultColor,
-                              height: 1.5,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w400)),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: width * 0.95,
-                  child: TextField(
-                    key: const Key('meeting_link_field'),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (value) {
-                      joinMeeting();
-                    },
-                    style: GoogleFonts.inter(),
-                    controller: meetingLinkController,
-                    onChanged: (value) {
-                      setState(() {});
-                    },
-                    decoration: InputDecoration(
-                        focusColor: hmsdefaultColor,
-                        contentPadding: const EdgeInsets.only(left: 16),
-                        fillColor: themeSurfaceColor,
-                        filled: true,
-                        hintText: 'Paste the link here',
-                        hintStyle: GoogleFonts.inter(
-                            color: hmsHintColor,
-                            height: 1.5,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w400),
-                        suffixIcon: meetingLinkController.text.isEmpty
-                            ? null
-                            : IconButton(
-                                onPressed: () {
-                                  meetingLinkController.text = "";
-                                  setState(() {});
-                                },
-                                icon: const Icon(Icons.clear),
-                              ),
-                        enabledBorder: OutlineInputBorder(
-                            borderSide:
-                                BorderSide(color: borderColor, width: 1),
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(8))),
-                        border: const OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.all(Radius.circular(8)))),
-                  ),
-                ),
-                const SizedBox(
-                  height: 16,
-                ),
-                SizedBox(
-                  width: width * 0.95,
-                  child: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: meetingLinkController,
-                      builder: (context, value, child) {
-                        return Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
-                            color: meetingLinkController.text.isEmpty
-                                ? themeSurfaceColor
-                                : hmsdefaultColor,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                  child: ElevatedButton(
-                                style: ButtonStyle(
-                                    shadowColor: MaterialStateProperty.all(
-                                        themeSurfaceColor),
-                                    backgroundColor:
-                                        meetingLinkController.text.isEmpty
-                                            ? MaterialStateProperty.all(
-                                                themeSurfaceColor)
-                                            : MaterialStateProperty.all(
-                                                hmsdefaultColor),
-                                    shape: MaterialStateProperty.all<
-                                            RoundedRectangleBorder>(
-                                        RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8.0),
-                                    ))),
-                                onPressed: () async {
-                                  joinMeeting();
-                                },
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(60, 12, 8, 12),
-                                  decoration: const BoxDecoration(
-                                      borderRadius:
-                                          BorderRadius.all(Radius.circular(8))),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      HLSTitleText(
-                                        key: const Key('join_now'),
-                                        text: 'Join Now',
-                                        textColor:
-                                            meetingLinkController.text.isEmpty
-                                                ? themeDisabledTextColor
-                                                : enabledTextColor,
-                                      )
-                                    ],
-                                  ),
-                                ),
-                              )),
-                              GestureDetector(
-                                onTap: (() => showModalBottomSheet(
-                                    isScrollControlled: true,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    context: context,
-                                    builder: (ctx) => HMSAppSettings(
-                                          appVersion:
-                                              "${_packageInfo.version} (${_packageInfo.buildNumber})",
-                                        ))),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(
-                                      left: 8.0, right: 8),
-                                  child: SvgPicture.asset(
-                                    "assets/icons/more.svg",
-                                    color: meetingLinkController.text.isEmpty
-                                        ? themeDisabledTextColor
-                                        : hmsWhiteColor,
-                                    fit: BoxFit.scaleDown,
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
-                        );
-                      }),
-                ),
-                const SizedBox(
-                  height: 20,
-                ),
-                SizedBox(
-                    width: width * 0.95,
-                    child: Divider(
-                      height: 5,
-                      color: dividerColor,
-                    )),
-                const SizedBox(
-                  height: 20,
-                ),
-                SizedBox(
-                  width: width * 0.95,
-                  child: ElevatedButton(
-                    style: ButtonStyle(
-                        shadowColor: MaterialStateProperty.all(hmsdefaultColor),
-                        backgroundColor:
-                            MaterialStateProperty.all(hmsdefaultColor),
-                        shape:
-                            MaterialStateProperty.all<RoundedRectangleBorder>(
-                                RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.0),
-                        ))),
-                    onPressed: () async {
-                      bool res = await Utilities.getCameraPermissions();
-                      if (res) {
-                        Navigator.push(context,
-                            MaterialPageRoute(builder: (_) => QRCodeScreen()));
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-                      decoration: const BoxDecoration(
-                          borderRadius: BorderRadius.all(Radius.circular(8))),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.qr_code,
-                            size: 18,
-                            color: enabledTextColor,
-                          ),
-                          const SizedBox(
-                            width: 5,
-                          ),
-                          HLSTitleText(
-                              key: const Key("scan_qr_code"),
-                              text: 'Scan QR Code',
-                              textColor: enabledTextColor)
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )),
+          body: SizedBox(
+              width: size.width,
+              height: size.height,
+              child: PageView.builder(
+                pageSnapping: true,
+                scrollDirection: Axis.vertical,
+                itemBuilder: (context, index) {
+                  return ViewerPage(
+                      key: UniqueKey(),
+                      meetingLink: meetingURL,
+                      meetingFlow: Utilities.deriveFlow(meetingURL),
+                      user: 'user');
+                },
+                itemCount: 5,
+              )),
+        ),
       ),
     );
   }

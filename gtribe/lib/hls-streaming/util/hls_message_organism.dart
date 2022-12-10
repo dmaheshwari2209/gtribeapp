@@ -1,10 +1,13 @@
+// ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:gtribe/common/util/app_color.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:gtribe/hls-streaming/util/hls_subtitle_text.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
 import 'package:provider/provider.dart';
+
 import '../../data_store/meeting_store.dart';
 
 class HLSMessageOrganism extends StatelessWidget {
@@ -13,13 +16,15 @@ class HLSMessageOrganism extends StatelessWidget {
   final String? senderName;
   final String date;
   final String role;
+  final bool isBroadcast;
   const HLSMessageOrganism({
     Key? key,
-    required this.isLocalMessage,
     required this.message,
+    required this.isLocalMessage,
     required this.senderName,
     required this.date,
     required this.role,
+    required this.isBroadcast,
   }) : super(key: key);
 
   @override
@@ -169,11 +174,14 @@ class HLSMessageOrganism extends StatelessWidget {
                   itemBuilder: (context) {
                     return List.generate(1, (index) {
                       return PopupMenuItem(
-                        child: const Text('Pin Message'),
-                        onTap: () => context
-                            .read<MeetingStore>()
-                            .setSessionMetadata("${senderName!}: $message"),
-                      );
+                          child: const Text('Pin Message'),
+                          onTap: () => (isBroadcast
+                              ? context
+                                  .read<MeetingStoreBroadcast>()
+                                  .setSessionMetadata(
+                                      "${senderName!}: $message")
+                              : context.read<MeetingStore>().setSessionMetadata(
+                                  "${senderName!}: $message")));
                     });
                   },
                   child: SvgPicture.asset(

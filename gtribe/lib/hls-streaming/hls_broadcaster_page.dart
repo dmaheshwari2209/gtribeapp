@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'package:gtribe/common/ui/organisms/audio_device_change.dart';
 import 'package:gtribe/common/ui/organisms/embedded_button.dart';
 import 'package:gtribe/common/ui/organisms/stream_timer.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:gtribe/common/util/utility_components.dart';
-import 'package:gtribe/common/util/utility_function.dart';
 import 'package:gtribe/enum/meeting_mode.dart';
 import 'package:gtribe/hls-streaming/bottom_sheets/hls_start_bottom_sheet.dart';
 import 'package:gtribe/hls-streaming/bottom_sheets/hls_message.dart';
-import 'package:gtribe/hls-streaming/bottom_sheets/hls_more_settings.dart';
-import 'package:gtribe/hls-streaming/bottom_sheets/hls_participant_sheet.dart';
 import 'package:gtribe/hls-streaming/util/hls_subtitle_text.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
 import 'package:gtribe/hls-streaming/util/pip_view.dart';
 import 'package:gtribe/hls_viewer/hls_viewer.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
 import 'package:gtribe/model/peer_track_node.dart';
 import 'package:provider/provider.dart';
 import 'package:tuple/tuple.dart';
@@ -49,11 +46,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
   }
 
   void checkAudioState() async {
-    if (!widget.isAudioOn) context.read<MeetingStore>().switchAudio();
+    if (!widget.isAudioOn) context.read<MeetingStoreBroadcast>().switchAudio();
 
     if (widget.isRoomMute) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        context.read<MeetingStore>().toggleSpeaker();
+        context.read<MeetingStoreBroadcast>().toggleSpeaker();
       });
     }
   }
@@ -72,10 +69,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
         onSelected: (int value) async {
           switch (value) {
             case 1:
-              await UtilityComponents.onLeaveStudio(context);
+              await UtilityComponents.onLeaveStudio(context, true);
               break;
             case 2:
               await UtilityComponents.onEndStream(
+                  isBroadcast: true,
                   leaveRoom: true,
                   context: context,
                   title: 'End Session',
@@ -94,7 +92,7 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                 child: Row(children: [
                   SvgPicture.asset("assets/icons/leave_hls.svg",
                       width: 17, color: themeDefaultColor),
-                  SizedBox(
+                  const SizedBox(
                     width: 12,
                   ),
                   HLSTitleText(
@@ -115,7 +113,7 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                 child: Row(children: [
                   SvgPicture.asset("assets/icons/end_warning.svg",
                       width: 17, color: errorColor),
-                  SizedBox(
+                  const SizedBox(
                     width: 12,
                   ),
                   HLSTitleText(
@@ -140,12 +138,14 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
         MediaQuery.of(context).orientation == Orientation.portrait;
     return WillPopScope(
       onWillPop: () async {
-        bool ans = await UtilityComponents.onBackPressed(context) ?? false;
+        bool ans =
+            await UtilityComponents.onBackPressed(context, true) ?? false;
         return ans;
       },
-      child: Selector<MeetingStore, Tuple2<bool, HMSException?>>(
-          selector: (_, meetingStore) =>
-              Tuple2(meetingStore.isRoomEnded, meetingStore.hmsException),
+      child: Selector<MeetingStoreBroadcast, Tuple2<bool, HMSException?>>(
+          selector: (_, meetingStoreBroMeetingStoreBroadcast) => Tuple2(
+              meetingStoreBroMeetingStoreBroadcast.isRoomEnded,
+              meetingStoreBroMeetingStoreBroadcast.hmsException),
           builder: (_, data, __) {
             if (data.item2 != null) {
               if (data.item2?.code?.errorCode == 1003 ||
@@ -164,20 +164,21 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                       });
                 });
               } else {
-                Utilities.showToast(
-                    "Error : ${data.item2!.code?.errorCode ?? ""} ${data.item2!.description} ${data.item2!.message}",
-                    time: 5);
+                // Utilities.showToast(
+                //     "Error : ${data.item2!.code?.errorCode ?? ""} ${data.item2!.description} ${data.item2!.message}",
+                //     time: 5);
               }
-              context.read<MeetingStore>().hmsException = null;
+              context.read<MeetingStoreBroadcast>().hmsException = null;
             }
             if (data.item1) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                Utilities.showToast(context.read<MeetingStore>().description);
+                // Utilities.showToast(context.read<MeetingStoreBroadcast>().description);
                 Navigator.of(context).popUntil((route) => route.isFirst);
               });
             }
-            return Selector<MeetingStore, bool>(
-                selector: (_, meetingStore) => meetingStore.isPipActive,
+            return Selector<MeetingStoreBroadcast, bool>(
+                selector: (_, meetingStoreBroMeetingStoreBroadcast) =>
+                    meetingStoreBroMeetingStoreBroadcast.isPipActive,
                 builder: (_, isPipActive, __) {
                   return isPipActive
                       ? PipView()
@@ -187,24 +188,37 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                             child: Stack(
                               children: [
                                 Selector<
-                                        MeetingStore,
+                                        MeetingStoreBroadcast,
                                         Tuple6<List<PeerTrackNode>, bool, int,
                                             int, MeetingMode, PeerTrackNode?>>(
-                                    selector: (_, meetingStore) => Tuple6(
-                                        meetingStore.peerTracks,
-                                        meetingStore.isHLSLink,
-                                        meetingStore.peerTracks.length,
-                                        meetingStore.screenShareCount,
-                                        meetingStore.meetingMode,
-                                        meetingStore.peerTracks.isNotEmpty
-                                            ? meetingStore.peerTracks[
-                                                meetingStore.screenShareCount]
-                                            : null),
+                                    selector: (_,
+                                            meetingStoreBroMeetingStoreBroadcast) =>
+                                        Tuple6(
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .peerTracks,
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .isHLSLink,
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .peerTracks.length,
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .screenShareCount,
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .meetingMode,
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                    .peerTracks.isNotEmpty
+                                                ? meetingStoreBroMeetingStoreBroadcast
+                                                        .peerTracks[
+                                                    meetingStoreBroMeetingStoreBroadcast
+                                                        .screenShareCount]
+                                                : null),
                                     builder: (_, data, __) {
                                       if (data.item2) {
-                                        return Selector<MeetingStore, bool>(
-                                            selector: (_, meetingStore) =>
-                                                meetingStore.hasHlsStarted,
+                                        return Selector<MeetingStoreBroadcast,
+                                                bool>(
+                                            selector: (_,
+                                                    meetingStoreBroMeetingStoreBroadcast) =>
+                                                meetingStoreBroMeetingStoreBroadcast
+                                                    .hasHlsStarted,
                                             builder: (_, hasHlsStarted, __) {
                                               return hasHlsStarted
                                                   ? SizedBox(
@@ -215,9 +229,10 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                               0.735,
                                                       child: Center(
                                                         child: HLSPlayer(
+                                                            isBroadcast: true,
                                                             streamUrl: context
                                                                 .read<
-                                                                    MeetingStore>()
+                                                                    MeetingStoreBroadcast>()
                                                                 .streamUrl),
                                                       ),
                                                     )
@@ -271,13 +286,18 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                         );
                                       }
                                       return Selector<
-                                              MeetingStore,
+                                              MeetingStoreBroadcast,
                                               Tuple3<MeetingMode, HMSPeer?,
                                                   int>>(
-                                          selector: (_, meetingStore) => Tuple3(
-                                              meetingStore.meetingMode,
-                                              meetingStore.localPeer,
-                                              meetingStore.peers.length),
+                                          selector: (_,
+                                                  meetingStoreBroMeetingStoreBroadcast) =>
+                                              Tuple3(
+                                                  meetingStoreBroMeetingStoreBroadcast
+                                                      .meetingMode,
+                                                  meetingStoreBroMeetingStoreBroadcast
+                                                      .localPeer,
+                                                  meetingStoreBroMeetingStoreBroadcast
+                                                      .peers.length),
                                           builder: (_, modeData, __) {
                                             Size size = Size(
                                                 MediaQuery.of(context)
@@ -392,9 +412,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                         children: [
                                           Row(
                                             children: [
-                                              Selector<MeetingStore, bool>(
-                                                  selector: (_, meetingStore) =>
-                                                      meetingStore
+                                              Selector<MeetingStoreBroadcast,
+                                                      bool>(
+                                                  selector: (_,
+                                                          meetingStoreBroMeetingStoreBroadcast) =>
+                                                      meetingStoreBroMeetingStoreBroadcast
                                                           .hasHlsStarted,
                                                   builder:
                                                       (_, hasHlsStarted, __) {
@@ -421,7 +443,8 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                             onTap: () async => {
                                                               await UtilityComponents
                                                                   .onBackPressed(
-                                                                      context)
+                                                                      context,
+                                                                      true)
                                                             },
                                                             width: 40,
                                                             height: 40,
@@ -450,9 +473,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                               const SizedBox(
                                                 width: 10,
                                               ),
-                                              Selector<MeetingStore, bool>(
-                                                  selector: (_, meetingStore) =>
-                                                      meetingStore
+                                              Selector<MeetingStoreBroadcast,
+                                                      bool>(
+                                                  selector: (_,
+                                                          meetingStoreBroMeetingStoreBroadcast) =>
+                                                      meetingStoreBroMeetingStoreBroadcast
                                                           .hasHlsStarted,
                                                   builder:
                                                       (_, hasHlsStarted, __) {
@@ -519,11 +544,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                     width: 6,
                                                                   ),
                                                                   Selector<
-                                                                          MeetingStore,
+                                                                          MeetingStoreBroadcast,
                                                                           HMSRoom?>(
                                                                       selector: (_,
-                                                                              meetingStore) =>
-                                                                          meetingStore
+                                                                              meetingStoreBroMeetingStoreBroadcast) =>
+                                                                          meetingStoreBroMeetingStoreBroadcast
                                                                               .hmsRoom,
                                                                       builder: (_,
                                                                           hmsRoom,
@@ -566,11 +591,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                     width: 6,
                                                                   ),
                                                                   Selector<
-                                                                          MeetingStore,
+                                                                          MeetingStoreBroadcast,
                                                                           int>(
                                                                       selector: (_,
-                                                                              meetingStore) =>
-                                                                          meetingStore
+                                                                              meetingStoreBroMeetingStoreBroadcast) =>
+                                                                          meetingStoreBroMeetingStoreBroadcast
                                                                               .peers
                                                                               .length,
                                                                       builder: (_,
@@ -594,15 +619,18 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                           ),
                                           Row(
                                             children: [
-                                              Selector<MeetingStore, bool>(
-                                                  selector: (_, meetingStore) =>
-                                                      meetingStore.isRaisedHand,
+                                              Selector<MeetingStoreBroadcast,
+                                                      bool>(
+                                                  selector: (_,
+                                                          meetingStoreBroMeetingStoreBroadcast) =>
+                                                      meetingStoreBroMeetingStoreBroadcast
+                                                          .isRaisedHand,
                                                   builder: (_, handRaised, __) {
                                                     return EmbeddedButton(
                                                       onTap: () => {
                                                         context
                                                             .read<
-                                                                MeetingStore>()
+                                                                MeetingStoreBroadcast>()
                                                             .changeMetadata()
                                                       },
                                                       width: 40,
@@ -626,48 +654,50 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                               const SizedBox(
                                                 width: 10,
                                               ),
-                                              EmbeddedButton(
-                                                onTap: () => {
-                                                  showModalBottomSheet(
-                                                    isScrollControlled: true,
-                                                    backgroundColor:
-                                                        themeBottomSheetColor,
-                                                    shape:
-                                                        RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              20),
-                                                    ),
-                                                    context: context,
-                                                    builder: (ctx) =>
-                                                        ChangeNotifierProvider.value(
-                                                            value: context.read<
-                                                                MeetingStore>(),
-                                                            child:
-                                                                HLSParticipantSheet()),
-                                                  )
-                                                },
-                                                width: 40,
-                                                height: 40,
-                                                offColor:
-                                                    themeScreenBackgroundColor,
-                                                onColor:
-                                                    themeScreenBackgroundColor,
-                                                isActive: true,
-                                                child: SvgPicture.asset(
-                                                  "assets/icons/participants.svg",
-                                                  color: themeDefaultColor,
-                                                  fit: BoxFit.scaleDown,
-                                                  semanticsLabel:
-                                                      "participants_button",
-                                                ),
-                                              ),
+                                              // EmbeddedButton(
+                                              //   onTap: () => {
+                                              //     showModalBottomSheet(
+                                              //       isScrollControlled: true,
+                                              //       backgroundColor:
+                                              //           themeBottomSheetColor,
+                                              //       shape:
+                                              //           RoundedRectangleBorder(
+                                              //         borderRadius:
+                                              //             BorderRadius.circular(
+                                              //                 20),
+                                              //       ),
+                                              //       context: context,
+                                              //       builder: (ctx) =>
+                                              //           ChangeNotifierProvider.value(
+                                              //               value: context.read<
+                                              //                   MeetingStoreBroadcast>(),
+                                              //               child:
+                                              //                   HLSParticipantSheet()),
+                                              //     )
+                                              //   },
+                                              //   width: 40,
+                                              //   height: 40,
+                                              //   offColor:
+                                              //       themeScreenBackgroundColor,
+                                              //   onColor:
+                                              //       themeScreenBackgroundColor,
+                                              //   isActive: true,
+                                              //   child: SvgPicture.asset(
+                                              //     "assets/icons/participants.svg",
+                                              //     color: themeDefaultColor,
+                                              //     fit: BoxFit.scaleDown,
+                                              //     semanticsLabel:
+                                              //         "participants_button",
+                                              //   ),
+                                              // ),
                                               const SizedBox(
                                                 width: 10,
                                               ),
-                                              Selector<MeetingStore, bool>(
-                                                  selector: (_, meetingStore) =>
-                                                      meetingStore
+                                              Selector<MeetingStoreBroadcast,
+                                                      bool>(
+                                                  selector: (_,
+                                                          meetingStoreBroMeetingStoreBroadcast) =>
+                                                      meetingStoreBroMeetingStoreBroadcast
                                                           .isNewMessageReceived,
                                                   builder: (_,
                                                       isNewMessageReceived,
@@ -676,11 +706,11 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                       onTap: () => {
                                                         context
                                                             .read<
-                                                                MeetingStore>()
+                                                                MeetingStoreBroadcast>()
                                                             .getSessionMetadata(),
                                                         context
                                                             .read<
-                                                                MeetingStore>()
+                                                                MeetingStoreBroadcast>()
                                                             .setNewMessageFalse(),
                                                         showModalBottomSheet(
                                                           isScrollControlled:
@@ -696,12 +726,16 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                           ),
                                                           context: context,
                                                           builder: (ctx) =>
-                                                              ChangeNotifierProvider.value(
-                                                                  value: context
-                                                                      .read<
-                                                                          MeetingStore>(),
-                                                                  child:
-                                                                      HLSMessage()),
+                                                              ChangeNotifierProvider
+                                                                  .value(
+                                                                      value: context
+                                                                          .read<
+                                                                              MeetingStoreBroadcast>(),
+                                                                      child:
+                                                                          const HLSMessage(
+                                                                        isBroadcast:
+                                                                            true,
+                                                                      )),
                                                         )
                                                       },
                                                       width: 40,
@@ -730,10 +764,12 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                           const EdgeInsets.only(bottom: 8.0),
                                       child: Column(
                                         children: [
-                                          if (Provider.of<MeetingStore>(context)
+                                          if (Provider.of<MeetingStoreBroadcast>(
+                                                          context)
                                                       .localPeer !=
                                                   null &&
-                                              !Provider.of<MeetingStore>(
+                                              !Provider.of<
+                                                          MeetingStoreBroadcast>(
                                                       context)
                                                   .localPeer!
                                                   .role
@@ -743,10 +779,10 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                               mainAxisAlignment:
                                                   MainAxisAlignment.spaceEvenly,
                                               children: [
-                                                if (Provider.of<MeetingStore>(context)
+                                                if (Provider.of<MeetingStoreBroadcast>(context)
                                                         .localPeer !=
                                                     null)
-                                                  (Provider.of<MeetingStore>(context)
+                                                  (Provider.of<MeetingStoreBroadcast>(context)
                                                               .localPeer
                                                               ?.role
                                                               .publishSettings
@@ -754,19 +790,18 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                               .contains(
                                                                   "audio") ??
                                                           false)
-                                                      ? Selector<MeetingStore,
+                                                      ? Selector<
+                                                              MeetingStoreBroadcast,
                                                               bool>(
-                                                          selector:
-                                                              (_, meetingStore) =>
-                                                                  meetingStore
-                                                                      .isMicOn,
-                                                          builder:
-                                                              (_, isMicOn, __) {
+                                                          selector: (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                                              meetingStoreBroMeetingStoreBroadcast
+                                                                  .isMicOn,
+                                                          builder: (_, isMicOn, __) {
                                                             return EmbeddedButton(
                                                               onTap: () => {
                                                                 context
                                                                     .read<
-                                                                        MeetingStore>()
+                                                                        MeetingStoreBroadcast>()
                                                                     .switchAudio()
                                                               },
                                                               width: 40,
@@ -792,19 +827,19 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                               ),
                                                             );
                                                           })
-                                                      : Selector<MeetingStore,
+                                                      : Selector<
+                                                              MeetingStoreBroadcast,
                                                               bool>(
                                                           selector: (_,
-                                                                  meetingStore) =>
-                                                              meetingStore
+                                                                  meetingStoreBroMeetingStoreBroadcast) =>
+                                                              meetingStoreBroMeetingStoreBroadcast
                                                                   .isSpeakerOn,
-                                                          builder: (_,
-                                                              isSpeakerOn, __) {
+                                                          builder: (_, isSpeakerOn, __) {
                                                             return EmbeddedButton(
                                                               onTap: () => {
                                                                 context
                                                                     .read<
-                                                                        MeetingStore>()
+                                                                        MeetingStoreBroadcast>()
                                                                     .toggleSpeaker(),
                                                               },
                                                               width: 40,
@@ -829,10 +864,10 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                       "speaker_mute_button"),
                                                             );
                                                           }),
-                                                if (Provider.of<MeetingStore>(context)
+                                                if (Provider.of<MeetingStoreBroadcast>(context)
                                                         .localPeer !=
                                                     null)
-                                                  (Provider.of<MeetingStore>(context)
+                                                  (Provider.of<MeetingStoreBroadcast>(context)
                                                               .localPeer
                                                               ?.role
                                                               .publishSettings
@@ -841,13 +876,14 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                   "video") ??
                                                           false)
                                                       ? Selector<
-                                                              MeetingStore,
+                                                              MeetingStoreBroadcast,
                                                               Tuple2<bool,
                                                                   bool>>(
-                                                          selector: (_, meetingStore) => Tuple2(
-                                                              meetingStore
+                                                          selector: (_, meetingStoreBroMeetingStoreBroadcast) => Tuple2(
+                                                              meetingStoreBroMeetingStoreBroadcast
                                                                   .isVideoOn,
-                                                              meetingStore.meetingMode ==
+                                                              meetingStoreBroMeetingStoreBroadcast
+                                                                      .meetingMode ==
                                                                   MeetingMode
                                                                       .Audio),
                                                           builder: (_, data, __) {
@@ -857,7 +893,7 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                     ? null
                                                                     : context
                                                                         .read<
-                                                                            MeetingStore>()
+                                                                            MeetingStoreBroadcast>()
                                                                         .switchVideo(),
                                                               },
                                                               width: 40,
@@ -882,21 +918,19 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                       "video_mute_button"),
                                                             );
                                                           })
-                                                      : Selector<MeetingStore,
+                                                      : Selector<
+                                                              MeetingStoreBroadcast,
                                                               bool>(
-                                                          selector:
-                                                              (_, meetingStore) =>
-                                                                  meetingStore
-                                                                      .isStatsVisible,
-                                                          builder: (_,
-                                                              isStatsVisible,
-                                                              __) {
+                                                          selector: (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                                              meetingStoreBroMeetingStoreBroadcast
+                                                                  .isStatsVisible,
+                                                          builder: (_, isStatsVisible, __) {
                                                             return EmbeddedButton(
                                                               width: 40,
                                                               height: 40,
                                                               onTap: () => context
                                                                   .read<
-                                                                      MeetingStore>()
+                                                                      MeetingStoreBroadcast>()
                                                                   .changeStatsVisible(),
                                                               disabledBorderColor:
                                                                   borderColor,
@@ -914,19 +948,20 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                       "stats_button"),
                                                             );
                                                           }),
-                                                if (Provider.of<MeetingStore>(
+                                                if (Provider.of<MeetingStoreBroadcast>(
                                                                 context)
                                                             .localPeer !=
                                                         null &&
                                                     widget.isStreamingLink)
-                                                  Selector<MeetingStore,
+                                                  Selector<
+                                                          MeetingStoreBroadcast,
                                                           Tuple2<bool, bool>>(
                                                       selector: (_,
-                                                              meetingStore) =>
+                                                              meetingStoreBroMeetingStoreBroadcast) =>
                                                           Tuple2(
-                                                              meetingStore
+                                                              meetingStoreBroMeetingStoreBroadcast
                                                                   .hasHlsStarted,
-                                                              meetingStore
+                                                              meetingStoreBroMeetingStoreBroadcast
                                                                   .isHLSLoading),
                                                       builder: (_, data, __) {
                                                         if (data.item1) {
@@ -938,6 +973,8 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                               InkWell(
                                                                 onTap: () {
                                                                   UtilityComponents.onEndStream(
+                                                                      isBroadcast:
+                                                                          true,
                                                                       context:
                                                                           context,
                                                                       title:
@@ -1046,9 +1083,9 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                   builder: (ctx) => ChangeNotifierProvider.value(
                                                                       value: context
                                                                           .read<
-                                                                              MeetingStore>(),
+                                                                              MeetingStoreBroadcast>(),
                                                                       child:
-                                                                          HLSStartBottomSheet()),
+                                                                          const HLSStartBottomSheet()),
                                                                 );
                                                               },
                                                               child:
@@ -1083,10 +1120,10 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                           ],
                                                         );
                                                       }),
-                                                if (Provider.of<MeetingStore>(context)
+                                                if (Provider.of<MeetingStoreBroadcast>(context)
                                                         .localPeer !=
                                                     null)
-                                                  (Provider.of<MeetingStore>(context)
+                                                  (Provider.of<MeetingStoreBroadcast>(context)
                                                               .localPeer
                                                               ?.role
                                                               .publishSettings
@@ -1094,29 +1131,28 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                               .contains(
                                                                   "screen") ??
                                                           false)
-                                                      ? Selector<MeetingStore,
+                                                      ? Selector<
+                                                              MeetingStoreBroadcast,
                                                               bool>(
-                                                          selector: (_,
-                                                                  meetingStore) =>
-                                                              meetingStore
+                                                          selector: (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                                              meetingStoreBroMeetingStoreBroadcast
                                                                   .isScreenShareOn,
-                                                          builder: (_, data,
-                                                              __) {
+                                                          builder: (_, data, __) {
                                                             return EmbeddedButton(
                                                               onTap: () {
-                                                                MeetingStore
-                                                                    meetingStore =
+                                                                MeetingStoreBroadcast
+                                                                    meetingStoreBroMeetingStoreBroadcast =
                                                                     Provider.of<
-                                                                            MeetingStore>(
+                                                                            MeetingStoreBroadcast>(
                                                                         context,
                                                                         listen:
                                                                             false);
-                                                                if (meetingStore
+                                                                if (meetingStoreBroMeetingStoreBroadcast
                                                                     .isScreenShareOn) {
-                                                                  meetingStore
+                                                                  meetingStoreBroMeetingStoreBroadcast
                                                                       .stopScreenShare();
                                                                 } else {
-                                                                  meetingStore
+                                                                  meetingStoreBroMeetingStoreBroadcast
                                                                       .startScreenShare();
                                                                 }
                                                               },
@@ -1139,20 +1175,20 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                       "screen_share_button"),
                                                             );
                                                           })
-                                                      : Selector<MeetingStore,
+                                                      : Selector<
+                                                              MeetingStoreBroadcast,
                                                               bool>(
-                                                          selector:
-                                                              (_, meetingStore) =>
-                                                                  (meetingStore
-                                                                      .isBRB),
-                                                          builder:
-                                                              (_, isBRB, __) {
+                                                          selector: (_,
+                                                                  meetingStoreBroMeetingStoreBroadcast) =>
+                                                              (meetingStoreBroMeetingStoreBroadcast
+                                                                  .isBRB),
+                                                          builder: (_, isBRB, __) {
                                                             return EmbeddedButton(
                                                               width: 40,
                                                               height: 40,
                                                               onTap: () => context
                                                                   .read<
-                                                                      MeetingStore>()
+                                                                      MeetingStoreBroadcast>()
                                                                   .changeMetadataBRB(),
                                                               disabledBorderColor:
                                                                   borderColor,
@@ -1169,57 +1205,57 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                                                       "brb_button"),
                                                             );
                                                           }),
-                                                if (Provider.of<MeetingStore>(
-                                                            context)
-                                                        .localPeer !=
-                                                    null)
-                                                  EmbeddedButton(
-                                                    onTap: () async => {
-                                                      isAudioMixerDisabled =
-                                                          await Utilities
-                                                                  .getBoolData(
-                                                                      key:
-                                                                          "audio-mixer-disabled") ??
-                                                              true,
-                                                      showModalBottomSheet(
-                                                        isScrollControlled:
-                                                            true,
-                                                        backgroundColor:
-                                                            themeBottomSheetColor,
-                                                        shape:
-                                                            RoundedRectangleBorder(
-                                                          borderRadius:
-                                                              BorderRadius
-                                                                  .circular(20),
-                                                        ),
-                                                        context: context,
-                                                        builder: (ctx) =>
-                                                            ChangeNotifierProvider
-                                                                .value(
-                                                                    value: context
-                                                                        .read<
-                                                                            MeetingStore>(),
-                                                                    child:
-                                                                        HLSMoreSettings(
-                                                                      isAudioMixerDisabled:
-                                                                          isAudioMixerDisabled,
-                                                                    )),
-                                                      )
-                                                    },
-                                                    width: 40,
-                                                    height: 40,
-                                                    offColor: themeHintColor,
-                                                    onColor:
-                                                        themeScreenBackgroundColor,
-                                                    isActive: true,
-                                                    child: SvgPicture.asset(
-                                                        "assets/icons/more.svg",
-                                                        color:
-                                                            themeDefaultColor,
-                                                        fit: BoxFit.scaleDown,
-                                                        semanticsLabel:
-                                                            "more_button"),
-                                                  ),
+                                                // if (Provider.of<MeetingStoreBroadcast>(
+                                                //             context)
+                                                //         .localPeer !=
+                                                //     null)
+                                                // EmbeddedButton(
+                                                //   onTap: () async => {
+                                                //     isAudioMixerDisabled =
+                                                //         await Utilities
+                                                //                 .getBoolData(
+                                                //                     key:
+                                                //                         "audio-mixer-disabled") ??
+                                                //             true,
+                                                //     showModalBottomSheet(
+                                                //       isScrollControlled:
+                                                //           true,
+                                                //       backgroundColor:
+                                                //           themeBottomSheetColor,
+                                                //       shape:
+                                                //           RoundedRectangleBorder(
+                                                //         borderRadius:
+                                                //             BorderRadius
+                                                //                 .circular(20),
+                                                //       ),
+                                                //       context: context,
+                                                //       builder: (ctx) =>
+                                                //           ChangeNotifierProvider
+                                                //               .value(
+                                                //                   value: context
+                                                //                       .read<
+                                                //                           MeetingStoreBroadcast>(),
+                                                //                   child:
+                                                //                       HLSMoreSettings(
+                                                //                     isAudioMixerDisabled:
+                                                //                         isAudioMixerDisabled,
+                                                //                   )),
+                                                //     )
+                                                //   },
+                                                //   width: 40,
+                                                //   height: 40,
+                                                //   offColor: themeHintColor,
+                                                //   onColor:
+                                                //       themeScreenBackgroundColor,
+                                                //   isActive: true,
+                                                //   child: SvgPicture.asset(
+                                                //       "assets/icons/more.svg",
+                                                //       color:
+                                                //           themeDefaultColor,
+                                                //       fit: BoxFit.scaleDown,
+                                                //       semanticsLabel:
+                                                //           "more_button"),
+                                                // ),
                                               ],
                                             ),
                                         ],
@@ -1227,15 +1263,18 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                     )
                                   ],
                                 ),
-                                Selector<MeetingStore, HMSRoleChangeRequest?>(
-                                    selector: (_, meetingStore) =>
-                                        meetingStore.currentRoleChangeRequest,
+                                Selector<MeetingStoreBroadcast,
+                                        HMSRoleChangeRequest?>(
+                                    selector:
+                                        (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .currentRoleChangeRequest,
                                     builder: (_, roleChangeRequest, __) {
                                       if (roleChangeRequest != null) {
                                         HMSRoleChangeRequest currentRequest =
                                             roleChangeRequest;
                                         context
-                                            .read<MeetingStore>()
+                                            .read<MeetingStoreBroadcast>()
                                             .currentRoleChangeRequest = null;
                                         WidgetsBinding.instance
                                             .addPostFrameCallback((_) {
@@ -1246,33 +1285,38 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                       }
                                       return const SizedBox();
                                     }),
-                                Selector<MeetingStore, HMSTrackChangeRequest?>(
-                                    selector: (_, meetingStore) =>
-                                        meetingStore.hmsTrackChangeRequest,
+                                Selector<MeetingStoreBroadcast,
+                                        HMSTrackChangeRequest?>(
+                                    selector:
+                                        (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .hmsTrackChangeRequest,
                                     builder: (_, hmsTrackChangeRequest, __) {
                                       if (hmsTrackChangeRequest != null) {
                                         HMSTrackChangeRequest currentRequest =
                                             hmsTrackChangeRequest;
                                         context
-                                            .read<MeetingStore>()
+                                            .read<MeetingStoreBroadcast>()
                                             .hmsTrackChangeRequest = null;
                                         WidgetsBinding.instance
                                             .addPostFrameCallback((_) {
                                           UtilityComponents
-                                              .showTrackChangeDialog(
-                                                  context, currentRequest);
+                                              .showTrackChangeDialog(context,
+                                                  currentRequest, true);
                                         });
                                       }
                                       return const SizedBox();
                                     }),
-                                Selector<MeetingStore, bool>(
-                                    selector: (_, meetingStore) =>
-                                        meetingStore.showAudioDeviceChangePopup,
+                                Selector<MeetingStoreBroadcast, bool>(
+                                    selector:
+                                        (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .showAudioDeviceChangePopup,
                                     builder:
                                         (_, showAudioDeviceChangePopup, __) {
                                       if (showAudioDeviceChangePopup) {
                                         context
-                                            .read<MeetingStore>()
+                                            .read<MeetingStoreBroadcast>()
                                             .showAudioDeviceChangePopup = false;
                                         WidgetsBinding.instance
                                             .addPostFrameCallback((_) {
@@ -1281,15 +1325,18 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                               builder: (_) =>
                                                   AudioDeviceChangeDialog(
                                                     currentAudioDevice: context
-                                                        .read<MeetingStore>()
+                                                        .read<
+                                                            MeetingStoreBroadcast>()
                                                         .currentAudioOutputDevice!,
                                                     audioDevicesList: context
-                                                        .read<MeetingStore>()
+                                                        .read<
+                                                            MeetingStoreBroadcast>()
                                                         .availableAudioOutputDevices,
                                                     changeAudioDevice:
                                                         (audioDevice) {
                                                       context
-                                                          .read<MeetingStore>()
+                                                          .read<
+                                                              MeetingStoreBroadcast>()
                                                           .switchAudioOutput(
                                                               audioDevice:
                                                                   audioDevice);
@@ -1299,13 +1346,16 @@ class _HLSBroadcasterPageState extends State<HLSBroadcasterPage> {
                                       }
                                       return const SizedBox();
                                     }),
-                                Selector<MeetingStore, bool>(
-                                    selector: (_, meetingStore) =>
-                                        meetingStore.reconnecting,
+                                Selector<MeetingStoreBroadcast, bool>(
+                                    selector:
+                                        (_, meetingStoreBroMeetingStoreBroadcast) =>
+                                            meetingStoreBroMeetingStoreBroadcast
+                                                .reconnecting,
                                     builder: (_, reconnecting, __) {
                                       if (reconnecting) {
                                         return UtilityComponents
-                                            .showReconnectingDialog(context);
+                                            .showReconnectingDialog(
+                                                context, true);
                                       }
                                       return const SizedBox();
                                     }),

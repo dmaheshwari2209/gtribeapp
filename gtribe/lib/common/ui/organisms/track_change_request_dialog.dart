@@ -1,22 +1,28 @@
 // Package imports
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gtribe/data_store/meeting_store_broadcast.dart';
 
 // Project imports
 import 'package:hmssdk_flutter/hmssdk_flutter.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:gtribe/enum/meeting_mode.dart';
 import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
-import 'package:gtribe/data_store/meeting_store.dart';
+
+import '../../../data_store/meeting_store.dart';
 
 class TrackChangeDialogOrganism extends StatefulWidget {
   final HMSTrackChangeRequest trackChangeRequest;
-  final MeetingStore meetingStore;
+  final MeetingStore? meetingStore;
+  final MeetingStoreBroadcast? meetingStoreBroadcast;
   final bool isAudioModeOn;
+  final bool isBroadcast;
   const TrackChangeDialogOrganism(
       {required this.trackChangeRequest,
-      required this.meetingStore,
-      this.isAudioModeOn = false})
+      this.meetingStore,
+      this.meetingStoreBroadcast,
+      this.isAudioModeOn = false,
+      required this.isBroadcast})
       : super();
 
   @override
@@ -92,9 +98,18 @@ class _RoleChangeDialogOrganismState extends State<TrackChangeDialogOrganism> {
                 if (widget.trackChangeRequest.track.kind ==
                         HMSTrackKind.kHMSTrackKindVideo &&
                     widget.isAudioModeOn) {
-                  widget.meetingStore.setMode(MeetingMode.Video);
+                  if (widget.meetingStore != null) {
+                    widget.meetingStore!.setMode(MeetingMode.Video);
+                  } else {
+                    widget.meetingStoreBroadcast!.setMode(MeetingMode.Video);
+                  }
                 }
-                widget.meetingStore.changeTracks(widget.trackChangeRequest);
+                if (widget.meetingStore != null) {
+                  widget.meetingStore!.changeTracks(widget.trackChangeRequest);
+                } else {
+                  widget.meetingStoreBroadcast!
+                      .changeTracks(widget.trackChangeRequest);
+                }
                 Navigator.pop(context);
               },
             ),
