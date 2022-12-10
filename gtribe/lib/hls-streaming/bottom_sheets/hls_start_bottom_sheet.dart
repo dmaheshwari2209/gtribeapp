@@ -1,0 +1,223 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:gtribe/common/ui/organisms/hms_button.dart';
+import 'package:gtribe/common/util/app_color.dart';
+import 'package:gtribe/hls-streaming/util/hls_title_text.dart';
+import 'package:gtribe/data_store/meeting_store.dart';
+import 'package:provider/provider.dart';
+
+class HLSStartBottomSheet extends StatefulWidget {
+  @override
+  final Key? key;
+  const HLSStartBottomSheet({this.key}) : super(key: key);
+
+  @override
+  State<HLSStartBottomSheet> createState() => _HLSStartBottomSheetState();
+}
+
+class _HLSStartBottomSheetState extends State<HLSStartBottomSheet> {
+  bool _isRecordingOn = false;
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      heightFactor: 0.75,
+      child: Container(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 20.0, left: 20, right: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: borderColor,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.arrow_back_ios_new,
+                        size: 16,
+                        color: hmsWhiteColor,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                  const SizedBox(
+                    width: 16,
+                  ),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      HLSTitleText(
+                        text: "START STREAMING",
+                        textColor: themeSubHeadingColor,
+                        fontSize: 10,
+                        lineHeight: 16,
+                      ),
+                      HLSTitleText(
+                        text: "HLS",
+                        textColor: themeDefaultColor,
+                        fontSize: 20,
+                        letterSpacing: 0.15,
+                        lineHeight: 24,
+                      )
+                    ],
+                  )
+                ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Divider(
+                  height: 5,
+                  color: dividerColor,
+                ),
+              ),
+              SvgPicture.asset(
+                "assets/icons/live.svg",
+                color: themeDefaultColor,
+                width: 33,
+              ),
+              const SizedBox(
+                height: 20,
+              ),
+              HLSTitleText(
+                text: "HLS Streaming",
+                textColor: themeDefaultColor,
+                fontSize: 20,
+                letterSpacing: 0.15,
+                lineHeight: 24,
+              ),
+              const SizedBox(
+                height: 8,
+              ),
+              Text(
+                "Stream directly from the browser using any device with multiple hosts and real-time messaging, all within this platform.",
+                maxLines: 2,
+                style: GoogleFonts.inter(
+                    color: themeSubHeadingColor,
+                    fontSize: 14,
+                    height: 20 / 14,
+                    letterSpacing: 0.25,
+                    fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(
+                height: 20,
+              ),
+              Container(
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    color: themeSurfaceColor),
+                height: 56,
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          SvgPicture.asset(
+                            "assets/icons/record.svg",
+                            color: themeDefaultColor,
+                          ),
+                          const SizedBox(
+                            width: 10,
+                          ),
+                          HLSTitleText(
+                            text: "Record the stream",
+                            textColor: themeDefaultColor,
+                            fontSize: 14,
+                            letterSpacing: 0.25,
+                            lineHeight: 20,
+                          )
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Transform.scale(
+                              scale: 0.6,
+                              transformHitTests: false,
+                              child: CupertinoSwitch(
+                                  activeColor: hmsdefaultColor,
+                                  value: _isRecordingOn,
+                                  onChanged: (bool newValue) {
+                                    setState(() {
+                                      _isRecordingOn = newValue;
+                                    });
+                                  }))
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(
+                height: 20,
+              ),
+              HMSButton(
+                  width: MediaQuery.of(context).size.width - 30,
+                  onPressed: () => {
+                        context
+                            .read<MeetingStore>()
+                            .startHLSStreaming(_isRecordingOn, false),
+                        Navigator.pop(context)
+                      },
+                  childWidget: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SvgPicture.asset(
+                          "assets/icons/live.svg",
+                          color: themeDefaultColor,
+                          width: 24,
+                        ),
+                        const SizedBox(
+                          width: 11,
+                        ),
+                        HLSTitleText(
+                            text: "Go Live", textColor: themeDefaultColor)
+                      ],
+                    ),
+                  )),
+              const SizedBox(
+                height: 20,
+              ),
+              SizedBox(
+                width: MediaQuery.of(context).size.width - 30,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    SvgPicture.asset(
+                      "assets/icons/info.svg",
+                      color: themeSubHeadingColor,
+                      width: 15,
+                    ),
+                    const SizedBox(
+                      width: 18.5,
+                    ),
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width - 65,
+                      child: Text(
+                        "If recording has to be enabled later, streaming has to be stopped first.",
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            color: themeSubHeadingColor,
+                            letterSpacing: 0.4,
+                            fontWeight: FontWeight.w400),
+                      ),
+                    )
+                  ],
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

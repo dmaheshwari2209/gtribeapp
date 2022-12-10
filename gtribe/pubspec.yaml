@@ -12,12 +12,35 @@ dependencies:
   flutter:
     sdk: flutter
 
-  webview_flutter: ^3.0.4
   hmssdk_flutter: ^1.0.0
-  cupertino_icons: ^1.0.2
-  http: ^0.13.5
-  provider: ^6.0.4
-  permission_handler: ^10.2.0
+  wakelock:
+  cupertino_icons:
+  provider:
+  http:
+  permission_handler:
+  intl:
+  flutter_launcher_icons:
+  package_info_plus:
+  logger:
+  path_provider:
+  dropdown_button2:
+  focus_detector:
+  flutter_staggered_grid_view:
+  tuple:
+  avatar_glow:
+  flutter_svg:
+  google_fonts:
+  fluttertoast:
+  qr_code_scanner:
+  shared_preferences:
+  uni_links:
+  file_picker:
+  draggable_widget:
+  badges:
+  url_launcher:
+  pip_flutter:
+  share_plus:
+  webview_flutter: ^3.0.4
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +57,7 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  assets:
+    - assets/icons/
+    - assets/
