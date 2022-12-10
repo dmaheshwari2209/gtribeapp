@@ -7,9 +7,11 @@ class PrimaryButton extends StatelessWidget {
     Key? key,
     required this.label,
     required this.onTap,
+    this.child,
   }) : super(key: key);
   final String label;
   final Function onTap;
+  final Widget? child;
 
   @override
   Widget build(BuildContext context) {
@@ -25,13 +27,14 @@ class PrimaryButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40),
           child: Center(
-            child: Text(
-              label,
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700),
-            ),
+            child: child ??
+                Text(
+                  label,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700),
+                ),
           ),
         ),
       ),

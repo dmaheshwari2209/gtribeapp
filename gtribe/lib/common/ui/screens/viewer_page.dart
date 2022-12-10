@@ -1,5 +1,6 @@
 // ignore_for_file: public_member_api_docs, sort_constructors_first
 import 'package:flutter/material.dart';
+import 'package:gtribe/common/ui/modal_sheets/stats_modal.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data_store/meeting_store.dart';
@@ -14,11 +15,9 @@ class ViewerPage extends StatelessWidget {
     Key? key,
     required this.meetingLink,
     required this.meetingFlow,
-    required this.user,
   }) : super(key: key);
   final String meetingLink;
   final MeetingFlow meetingFlow;
-  final String user;
 
   void joinMeeting(BuildContext context) {
     // MeetingStore meetingStore = context.read<MeetingStore>();
@@ -46,6 +45,17 @@ class ViewerPage extends StatelessWidget {
     } else {
       // Utilities.showToast("Please enter valid url");
     }
+  }
+
+  void showNudge(BuildContext context) {
+    showModalBottomSheet(
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      context: context,
+      builder: (context) {
+        return const StatsModal();
+      },
+    );
   }
 
   @override
@@ -77,7 +87,7 @@ class ViewerPage extends StatelessWidget {
               isAudioOn: true,
               meetingLink: meetingLink,
               localPeerNetworkQuality: -1,
-              user: user,
+              user: Utilities.userName ?? 'user',
               mirrorCamera: false,
               showStats: false,
             ),
@@ -85,8 +95,8 @@ class ViewerPage extends StatelessWidget {
               padding: const EdgeInsets.all(50),
               child: GestureDetector(
                 onTap: () {
-                  joinMeeting(context);
-                  // showNudge();
+                  // joinMeeting(context);
+                  showNudge(context);
                 },
                 child: const CircleAvatar(
                   radius: 30,

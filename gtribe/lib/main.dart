@@ -4,17 +4,17 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:gtribe/common/ui/modal_sheets/stream_popup.dart';
-import 'package:gtribe/common/ui/screens/viewer_page.dart';
+import 'package:gtribe/common/ui/screens/entry_screen.dart';
 import 'package:gtribe/common/util/app_color.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock/wakelock.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:uni_links/uni_links.dart';
 
 //Project imports
-import './logs/custom_singleton_logger.dart';
+import 'common/ui/screens/home_screen.dart';
 import 'common/util/utility_function.dart';
+import 'constants.dart';
 
 bool _initialURILinkHandled = false;
 StreamSubscription? _streamSubscription;
@@ -23,6 +23,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Wakelock.enable();
   Provider.debugCheckInvalidValueType = null;
+
+  SharedPreferences pref = await SharedPreferences.getInstance();
+  String? str = pref.getString(USERNAME);
+  if (str != null) {
+    Utilities.userName = str;
+  }
 
   runApp(const HMSExampleApp());
 }
@@ -169,9 +175,11 @@ class _HMSExampleAppState extends State<HMSExampleApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: HomePage(
-        deepLinkURL: _currentURI == null ? null : _currentURI.toString(),
-      ),
+      home: Utilities.userName == null
+          ? const EntryScreen()
+          : HomePage(
+              deepLinkURL: _currentURI == null ? null : _currentURI.toString(),
+            ),
       theme: _lightTheme,
       darkTheme: _darkTheme,
       themeMode: _themeMode,
@@ -184,106 +192,5 @@ class _HMSExampleAppState extends State<HMSExampleApp> {
       isDarkMode = themeMode == ThemeMode.dark;
       updateColor(_themeMode);
     });
-  }
-}
-
-class HomePage extends StatefulWidget {
-  final String? deepLinkURL;
-
-  const HomePage({Key? key, this.deepLinkURL}) : super(key: key);
-
-  @override
-  _HomePageState createState() => _HomePageState();
-  static _HomePageState of(BuildContext context) =>
-      context.findAncestorStateOfType<_HomePageState>()!;
-}
-
-class _HomePageState extends State<HomePage> {
-  TextEditingController meetingLinkController = TextEditingController();
-  CustomLogger logger = CustomLogger();
-
-  PackageInfo _packageInfo = PackageInfo(
-    appName: 'Unknown',
-    packageName: 'Unknown',
-    version: 'Unknown',
-    buildNumber: 'Unknown',
-    buildSignature: 'Unknown',
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    logger.getCustomLogger();
-    _initPackageInfo();
-    getData();
-  }
-
-  void getData() async {
-    String savedMeetingUrl = await Utilities.getStringData(key: 'meetingLink');
-    if (widget.deepLinkURL == null && savedMeetingUrl.isNotEmpty) {
-      meetingLinkController.text = savedMeetingUrl;
-    } else {
-      meetingLinkController.text = widget.deepLinkURL ?? "";
-    }
-  }
-
-  Future<bool> _closeApp() {
-    CustomLogger.file?.delete();
-    return Future.value(true);
-  }
-
-  Future<void> _initPackageInfo() async {
-    final info = await PackageInfo.fromPlatform();
-    setState(() {
-      _packageInfo = info;
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant HomePage oldWidget) {
-    if (widget.deepLinkURL != null) {
-      meetingLinkController.text = widget.deepLinkURL!;
-    }
-    super.didUpdateWidget(oldWidget);
-  }
-
-  void showNudge() {
-    showModalBottomSheet(
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      context: context,
-      builder: (context) {
-        return const StreamPopup();
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Size size = MediaQuery.of(context).size;
-    String meetingURL =
-        'https://gtribe.app.100ms.live/streaming/meeting/bta-hqq-jto';
-    return WillPopScope(
-      onWillPop: _closeApp,
-      child: SafeArea(
-        child: Scaffold(
-          body: SizedBox(
-              width: size.width,
-              height: size.height,
-              child: PageView.builder(
-                pageSnapping: true,
-                scrollDirection: Axis.vertical,
-                itemBuilder: (context, index) {
-                  return ViewerPage(
-                      key: UniqueKey(),
-                      meetingLink: meetingURL,
-                      meetingFlow: Utilities.deriveFlow(meetingURL),
-                      user: 'user');
-                },
-                itemCount: 5,
-              )),
-        ),
-      ),
-    );
   }
 }

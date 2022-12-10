@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class Utilities {
   static double horizontalPadding = 24;
+  static String? userName;
 
   static TextStyle spacedStyle = TextStyle(
       color: Colors.white.withOpacity(0.6), letterSpacing: 5, fontSize: 13);

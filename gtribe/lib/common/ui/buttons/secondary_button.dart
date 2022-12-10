@@ -23,7 +23,7 @@ class SecondaryButton extends StatelessWidget {
         ),
         height: 48,
         child: Padding(
-          padding: const EdgeInsets.only(top: 2),
+          padding: const EdgeInsets.only(top: 2, bottom: 1),
           child: Container(
             height: 45,
             decoration: const BoxDecoration(
